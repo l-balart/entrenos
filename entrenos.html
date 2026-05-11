@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Entrenos">
+<title>Entrenos</title>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Entrenos%22%2C%22short_name%22%3A%22Entrenos%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f7f4ef%22%2C%22theme_color%22%3A%22%23c8a97a%22%7D">
+<style>
+  :root {
+    --bg: #f7f4ef;
+    --surface: #ffffff;
+    --surface2: #f0ece4;
+    --border: #e0d8cc;
+    --border2: #ccc3b4;
+    --text: #1a1612;
+    --text2: #6b5e4e;
+    --text3: #9e8e7d;
+    --accent: #c8a97a;
+    --accent-dark: #8a6d47;
+    --accent-bg: #f5edd9;
+    --danger: #c0392b;
+    --danger-bg: #fdf0ee;
+    --success: #2d7a4f;
+    --success-bg: #edf7f1;
+    --cycle-menst: #e07070;
+    --cycle-folic: #70a8d0;
+    --cycle-ovul: #7dbf7d;
+    --cycle-lut: #c49ad4;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'Helvetica Neue', sans-serif; color: var(--text); overscroll-behavior: none; }
+
+  /* NAV */
+  #app { display: flex; flex-direction: column; height: 100dvh; }
+  #content { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+  #nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom, 0); }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 4px 8px; gap: 3px; background: none; border: none; color: var(--text3); font-size: 10px; cursor: pointer; transition: color .15s; }
+  .nav-btn.active { color: var(--accent-dark); }
+  .nav-btn svg { width: 22px; height: 22px; }
+
+  /* HEADER */
+  .page-header { padding: 56px 20px 16px; }
+  .page-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .page-header p { font-size: 14px; color: var(--text2); margin-top: 4px; }
+
+  /* SECTIONS */
+  .section { padding: 0 16px; margin-bottom: 20px; }
+  .section-title { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; padding: 0 4px; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+  .card-row { display: flex; align-items: center; justify-content: space-between; }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border2); background: var(--surface); color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent-dark); border-color: var(--accent-dark); color: white; }
+  .btn-danger { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-icon { padding: 8px; border-radius: var(--radius-sm); }
+
+  /* FORMS */
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  input, select, textarea { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; color: var(--text); appearance: none; -webkit-appearance: none; outline: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); background: white; }
+  textarea { resize: vertical; min-height: 80px; }
+  .rating-group { display: flex; gap: 8px; }
+  .rating-btn { flex: 1; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .12s; color: var(--text2); }
+  .rating-btn.sel { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-dark); }
+
+  /* TAGS */
+  .tag { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .tag-menst { background: #fde8e8; color: #a03030; }
+  .tag-folic { background: #e0f0f8; color: #2a5f88; }
+  .tag-ovul  { background: #e0f4e0; color: #286628; }
+  .tag-lut   { background: #f0e6f8; color: #6a3a88; }
+
+  /* EXERCISE ITEM */
+  .ex-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px; }
+  .ex-name { font-size: 15px; font-weight: 600; }
+  .ex-meta { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* SCORE DISPLAY */
+  .score-ring { width: 72px; height: 72px; }
+  .score-pair { display: flex; gap: 12px; }
+  .score-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+  .score-num { font-size: 28px; font-weight: 700; }
+  .score-label { font-size: 11px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* PROGRESS CHARTS */
+  .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .mini-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; }
+  .bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 4px; transition: height .3s; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200; display: flex; align-items: flex-end; }
+  .modal { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-height: 92dvh; overflow-y: auto; padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0)); }
+  .modal-handle { width: 40px; height: 4px; background: var(--border2); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .hidden { display: none !important; }
+
+  /* EXERCISE SELECTOR */
+  .ex-select-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 12px; cursor: pointer; }
+  .ex-select-item:last-child { border-bottom: none; }
+  .ex-checkbox { width: 22px; height: 22px; border: 2px solid var(--border2); border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ex-checkbox.checked { background: var(--accent-dark); border-color: var(--accent-dark); }
+
+  /* HISTORY ITEM */
+  .history-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; cursor: pointer; }
+  .history-date { font-size: 13px; font-weight: 700; color: var(--text2); }
+  .history-exs { font-size: 13px; color: var(--text3); margin-top: 4px; }
+
+  /* LOAD INLINE FIELDS */
+  .load-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .load-input { flex: 1; min-width: 80px; padding: 8px 10px; font-size: 14px; }
+  .load-label { font-size: 12px; color: var(--text3); white-space: nowrap; }
+
+  /* STATS GRID */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .stat-val { font-size: 22px; font-weight: 700; }
+  .stat-lbl { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  /* CHIP GROUP */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border2); font-size: 13px; cursor: pointer; background: var(--bg); color: var(--text2); }
+  .chip.sel { background: var(--accent-dark); border-color: var(--accent-dark); color: white; }
+
+  /* SEARCH */
+  .search-input { position: relative; }
+  .search-input input { padding-left: 36px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
+
+  /* CYCLE PHASE INDICATOR */
+  .phase-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+  /* WEEKLY HEATMAP */
+  .heatmap-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .heatmap-cell { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text3); }
+  .heatmap-cell.has-data { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
+
+  /* SCORE BAR */
+  .score-bar-wrap { margin-top: 8px; background: var(--bg); border-radius: 4px; height: 6px; }
+  .score-bar-fill { height: 6px; border-radius: 4px; background: var(--accent); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .flex-row { display: flex; align-items: center; gap: 8px; }
+  .flex-col { display: flex; flex-direction: column; gap: 8px; }
+  .mt-8 { margin-top: 8px; }
+  .mt-16 { margin-top: 16px; }
+  .text-sm { font-size: 13px; }
+  .text-muted { color: var(--text3); }
+  .font-bold { font-weight: 700; }
+  .text-accent { color: var(--accent-dark); }
+
+  /* SPARKLINE */
+  .sparkline { width: 100%; height: 48px; }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty-state svg { margin: 0 auto 12px; display: block; opacity: .4; }
+  .empty-state p { font-size: 14px; }
+
+  /* NOTIFICATION */
+  #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1a1612; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="content"></div>
+  <nav id="nav">
+    <button class="nav-btn active" onclick="navigate('home')" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Inicio
+    </button>
+    <button class="nav-btn" onclick="navigate('log')" id="nav-log">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Registrar
+    </button>
+    <button class="nav-btn" onclick="navigate('progress')" id="nav-progress">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Progreso
+    </button>
+    <button class="nav-btn" onclick="navigate('exercises')" id="nav-exercises">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 6.5h11v11h-11z"/><path d="M3 9.5h3v5H3z"/><path d="M18 9.5h3v5h-3z"/><path d="M9.5 3h5v3h-5z"/><path d="M9.5 18h5v3h-5z"/></svg>
+      Ejercicios
+    </button>
+    <button class="nav-btn" onclick="navigate('settings')" id="nav-settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Ajustes
+    </button>
+  </nav>
+</div>
+
+<div id="modal-overlay" class="modal-overlay hidden" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════
+const DB = {
+  get exercises() { return JSON.parse(localStorage.getItem('exercises') || '[]'); },
+  set exercises(v) { localStorage.setItem('exercises', JSON.stringify(v)); },
+  get sessions() { return JSON.parse(localStorage.getItem('sessions') || '[]'); },
+  set sessions(v) { localStorage.setItem('sessions', JSON.stringify(v)); },
+};
+
+// Seed default exercises from the user's excel
+if (!localStorage.getItem('exercises')) {
+  const defaults = [
+    "Apertura de cadera miniband","Boxeo al aire","Curl de bíceps","Curl de bíceps martillo con goma",
+    "Desplazamiento lateral tocando tibias","Elevaciones laterales","Flexiones inclinadas","Jumping Jacks",
+    "Pallof press de rodillas mano colateral isotónico","Pasos laterales con miniband","Plancha",
+    "Plancha lateral isométrica","Peso muerto rumano con kettle/barra","Peso muerto a una pierna con mochila",
+    "Press de banca mancuernas","Press banca inclinado con dos mancuernas","Press francés banco con mancuernas",
+    "Press militar","Press de tríceps bilateral","Press vertical de hombros con mochila",
+    "Puente de glúteo con pesa rusa","Puente de glúteo unilateral KB","Puente de isquios isométrico",
+    "Pull over bicho muerto","Remo a una mano con mancuerna","Remo a una mano sentado (goma)",
+    "Remo con goma","Remo con goma a una mano","Remo a una mano con mochila",
+    "Sentadilla box pie quebrado goblet","Sentadilla box con extensión de brazos","Sentadilla box goblet",
+    "Sentadilla goblet","Sentadilla isométrica en pared","Sentadilla sumo KB","Sentadilla + subida de rodilla",
+    "Skipping","Mini zancadas con extensión vertical de brazos","Zancadas en pared","Zancada frontal con mancuernas"
+  ];
+  DB.exercises = defaults.map((n,i) => ({ id: 'ex_' + i, name: n }));
+}
+
+// ═══════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════
+let currentPage = 'home';
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + page).classList.add('active');
+  render();
+}
+
+function render() {
+  const c = document.getElementById('content');
+  if (currentPage === 'home') c.innerHTML = renderHome();
+  else if (currentPage === 'log') c.innerHTML = renderLog();
+  else if (currentPage === 'progress') c.innerHTML = renderProgress();
+  else if (currentPage === 'exercises') c.innerHTML = renderExercises();
+  attachListeners();
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function formatDate(d) {
+  const date = new Date(d);
+  return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function cycleTag(phase) {
+  const map = { 'Menstruación': ['tag-menst','🔴'], 'Folicular': ['tag-folic','🔵'], 'Ovulación': ['tag-ovul','🟢'], 'Lútea': ['tag-lut','🟣'] };
+  const [cls, _] = map[phase] || ['',''];
+  return `<span class="tag ${cls}">${phase}</span>`;
+}
+function phaseExpectedScore(phase) {
+  // Expected baseline performance by phase
+  return { 'Folicular': 0.85, 'Ovulación': 1.0, 'Lútea': 0.65, 'Menstruación': 0.55 }[phase] || 0.75;
+}
+function calcScores(session) {
+  // Absolute score: weighted avg of all available context fields
+  const weights = { sleep: 1.5, energy: 2.0, stress_inv: 1.5, motivation: 1.5, soreness_inv: 1.0 };
+  let total = 0, wsum = 0;
+  const push = (val, key, max) => { if (val != null && val !== '') { total += (val/max) * weights[key]; wsum += weights[key]; } };
+  push(session.sleep, 'sleep', 5);
+  push(session.energy, 'energy', 5);
+  push(session.stress != null ? 6 - session.stress : null, 'stress_inv', 5);
+  push(session.motivation, 'motivation', 5);
+  push(session.soreness != null ? 6 - session.soreness : null, 'soreness_inv', 5);
+  // Add exercise load contribution
+  let loadScore = 0, loadCount = 0;
+  (session.exercises || []).forEach(ex => {
+    if (ex.rpe != null && ex.rpe !== '') { loadScore += ex.rpe / 10; loadCount++; }
+  });
+  if (loadCount > 0) { total += (loadScore/loadCount) * 2; wsum += 2; }
+  const absolute = wsum > 0 ? Math.round((total/wsum) * 100) : null;
+  // Relative score: adjust by cycle phase expectation
+  if (absolute === null) return { absolute: null, relative: null };
+  const expected = phaseExpectedScore(session.cycle) * 100;
+  const relative = Math.min(100, Math.round(absolute / (expected / 100) * 0.7 + absolute * 0.3));
+  return { absolute, relative };
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+
+// ═══════════════════════════════════════════════
+// HOME PAGE
+// ═══════════════════════════════════════════════
+function renderHome() {
+  const sessions = DB.sessions.sort((a,b) => b.date.localeCompare(a.date));
+  const recent = sessions.slice(0, 5);
+  const today = todayStr();
+  const todaySess = sessions.find(s => s.date === today);
+
+  // Streak
+  let streak = 0;
+  const dates = new Set(sessions.map(s => s.date));
+  let d = new Date(); d.setDate(d.getDate() - (todaySess ? 0 : 1));
+  while (dates.has(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)) {
+    streak++; d.setDate(d.getDate()-1);
+  }
+
+  // This week
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+  const weekSess = sessions.filter(s => new Date(s.date) >= weekStart).length;
+
+  return `
+  <div class="page-header">
+    <h1>Hola 👋</h1>
+    <p>${new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' })}</p>
+  </div>
+
+  <div class="section">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-val">${sessions.length}</div>
+        <div class="stat-lbl">Entrenos totales</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${weekSess}</div>
+        <div class="stat-lbl">Esta semana</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${streak}</div>
+        <div class="stat-lbl">Racha (días)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${sessions.length > 0 ? Math.round(sessions.reduce((a,s) => a + (s.duration||0),0)/sessions.length) : 0}<span style="font-size:14px;font-weight:400;color:var(--text3)">min</span></div>
+        <div class="stat-lbl">Media duración</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${(() => { const ks=sessions.filter(s=>s.kcal); return ks.length ? Math.round(ks.reduce((a,s)=>a+s.kcal,0)/ks.length) : '-'; })()}<span style="font-size:11px;font-weight:400;color:var(--text3)">${sessions.some(s=>s.kcal)?'kcal':''}</span></div>
+        <div class="stat-lbl">Media kcal/día</div>
+      </div>
+    </div>
+  </div>
+
+  ${!todaySess ? `
+  <div class="section">
+    <button class="btn btn-primary btn-full" onclick="navigate('log')" style="padding:14px;font-size:16px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Registrar entreno de hoy
+    </button>
+  </div>` : `
+  <div class="section">
+    <div class="card" style="border-color:var(--accent);background:var(--accent-bg);">
+      <div class="flex-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-dark)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span style="font-size:14px;font-weight:600;color:var(--accent-dark)">Entreno registrado hoy</span>
+      </div>
+    </div>
+  </div>`}
+
+  <div class="section">
+    <div class="section-title">Últimos entrenos</div>
+    ${recent.length === 0 ? `<div class="empty-state"><p>Aún no hay entrenos registrados</p></div>` :
+      recent.map(s => {
+        const scores = calcScores(s);
+        return `
+        <div class="history-item" onclick="showSessionDetail('${s.id}')">
+          <div class="flex-row" style="justify-content:space-between;">
+            <div>
+              <div class="history-date">${formatDate(s.date)}</div>
+              <div class="history-exs">${(s.exercises||[]).length} ejercicios${s.duration ? ' · ' + s.duration + 'min' : ''}</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              ${cycleTag(s.cycle)}
+              ${scores.absolute !== null ? `<span style="font-size:13px;font-weight:700;color:var(--accent-dark)">${scores.absolute}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')
+    }
+    ${sessions.length > 5 ? `<button class="btn btn-full btn-sm mt-8" onclick="showAllSessions()">Ver todos (${sessions.length})</button>` : ''}
+  </div>
+  <div class="section">
+    <div class="section-title">Datos</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button class="btn btn-sm" onclick="exportData()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar
+      </button>
+      <button class="btn btn-sm" onclick="triggerImport()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Importar
+      </button>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// LOG SESSION PAGE
+// ═══════════════════════════════════════════════
+let logState = null;
+
+function resetLogState() {
+  logState = {
+    date: todayStr(),
+    cycle: '',
+    sleep: null, energy: null, stress: null, motivation: null, soreness: null,
+    duration: '',
+    notes: '',
+    kcal: null,
+    exercises: []
+  };
+}
+
+function renderLog() {
+  if (!logState) resetLogState();
+  const exercises = DB.exercises;
+  const sel = logState.exercises;
+
+  return `
+  <div class="page-header">
+    <h1>Registrar</h1>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Fecha</div>
+    <div class="card" style="padding:12px 14px;">
+      <input type="date" id="log-date" value="${logState.date}" onchange="logState.date=this.value" style="background:transparent;border:none;font-size:15px;font-weight:600;padding:0;width:auto;">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Fase del ciclo</div>
+    <div class="chip-group">
+      ${['Menstruación','Folicular','Ovulación','Lútea'].map(p => `
+        <div class="chip ${logState.cycle===p?'sel':''}" onclick="logState.cycle='${p}';render();">${p}</div>
+      `).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Estado del día</div>
+    <div class="card" style="gap:14px;display:flex;flex-direction:column;">
+      ${renderRatingRow('Calidad de sueño','sleep',5)}
+      ${renderRatingRow('Energía','energy',5)}
+      ${renderRatingRow('Estrés','stress',5)}
+      ${renderRatingRow('Motivación pre-entreno','motivation',5)}
+      ${renderRatingRow('Dolor muscular / agujetas','soreness',5)}
+    </div>
+  </div>
+
+  <div class="section">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <div class="section-title">Duración (min)</div>
+        <input type="number" id="log-duration" value="${logState.duration}" placeholder="ej. 55" min="1" max="300" onchange="logState.duration=+this.value">
+      </div>
+      <div>
+        <div class="section-title">Kcal consumidas</div>
+        <input type="number" id="log-kcal" value="${logState.kcal||''}" placeholder="ej. 1800" min="0" max="9999" onchange="logState.kcal=+this.value||null">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ejercicios realizados</div>
+    ${sel.length > 0 ? sel.map((ex,i) => renderLogExercise(ex, i)).join('') : ''}
+    <button class="btn btn-full mt-8" onclick="openExercisePicker()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Añadir ejercicio
+    </button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Notas generales</div>
+    <textarea id="log-notes" placeholder="Observaciones del entreno..." onchange="logState.notes=this.value">${logState.notes}</textarea>
+  </div>
+
+  <div class="section">
+    <button class="btn btn-primary btn-full" style="padding:14px;font-size:16px;" onclick="saveSession()">Guardar entreno</button>
+    <button class="btn btn-full mt-8" style="color:var(--text3);" onclick="resetLog()">Limpiar</button>
+  </div>`;
+}
+
+function renderRatingRow(label, key, max) {
+  return `
+  <div>
+    <label style="margin-bottom:8px;">${label}</label>
+    <div class="rating-group">
+      ${Array.from({length:max},(_,i)=>i+1).map(v=>`
+        <div class="rating-btn ${logState[key]===v?'sel':''}" onclick="logState['${key}']=${v};render();">${v}</div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function renderLogExercise(ex, idx) {
+  const mat = ex.material || '';
+  return `
+  <div class="ex-item" style="margin-bottom:10px;">
+    <div class="flex-row" style="justify-content:space-between;margin-bottom:8px;">
+      <span class="ex-name">${ex.name}</span>
+      <button class="btn btn-sm btn-danger btn-icon" onclick="removeLogExercise(${idx})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <label>Series</label>
+        <input type="number" min="1" value="${ex.sets||''}" placeholder="3" onchange="updateLogEx(${idx},'sets',+this.value||null)">
+      </div>
+      <div>
+        <label>Reps / tiempo</label>
+        <input type="text" value="${ex.reps||''}" placeholder="12 / 30s" onchange="updateLogEx(${idx},'reps',this.value)">
+      </div>
+    </div>
+
+    <div style="margin-top:8px;">
+      <label>Material</label>
+      <select onchange="updateLogEx(${idx},'material',this.value);render();">
+        <option value="">Sin material</option>
+        ${['Peso corporal','Mancuerna','Barra','Kettlebell','Goma','Miniband','Banda con asas'].map(m=>`
+          <option value="${m}" ${mat===m?'selected':''}>${m}</option>
+        `).join('')}
+      </select>
+    </div>
+
+    ${mat === 'Goma' || mat === 'Miniband' ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div>
+        <label>Resistencia usada</label>
+        <input type="number" min="1" value="${ex.resist_used||''}" placeholder="2" onchange="updateLogEx(${idx},'resist_used',+this.value||null)">
+      </div>
+      <div>
+        <label>Resistencia máx</label>
+        <input type="number" min="1" value="${ex.resist_max||''}" placeholder="3" onchange="updateLogEx(${idx},'resist_max',+this.value||null)">
+      </div>
+    </div>` : ''}
+
+    ${mat === 'Mancuerna' ? `
+    <div style="margin-top:8px;">
+      <label>Peso por mancuerna (kg)</label>
+      <input type="number" min="0.5" step="0.5" value="${ex.kg||''}" placeholder="ej. 5" onchange="updateLogEx(${idx},'kg',+this.value||null)">
+    </div>` : ''}
+
+    ${mat === 'Barra' || mat === 'Kettlebell' ? `
+    <div style="margin-top:8px;">
+      <label>Peso total (kg)</label>
+      <input type="number" min="0.5" step="0.5" value="${ex.kg||''}" placeholder="ej. 20" onchange="updateLogEx(${idx},'kg',+this.value||null)">
+    </div>` : ''}
+
+    <div style="margin-top:8px;">
+      <label>RPE (1-10)</label>
+      <input type="number" min="1" max="10" value="${ex.rpe||''}" placeholder="7" onchange="updateLogEx(${idx},'rpe',+this.value||null)">
+    </div>
+
+    <div style="margin-top:8px;">
+      <label>Comentarios</label>
+      <input type="text" value="${ex.notes||''}" placeholder="Notas del ejercicio" onchange="updateLogEx(${idx},'notes',this.value)">
+    </div>
+  </div>`;
+}
+
+function updateLogEx(idx, key, val) {
+  if (logState.exercises[idx]) logState.exercises[idx][key] = val;
+}
+function removeLogExercise(idx) {
+  logState.exercises.splice(idx, 1);
+  render();
+}
+
+function openExercisePicker() {
+  const exercises = DB.exercises;
+  const selectedIds = new Set(logState.exercises.map(e => e.id));
+  let searchQ = '';
+
+  function pickerContent() {
+    const filtered = exercises.filter(e => e.name.toLowerCase().includes(searchQ.toLowerCase()));
+    return `
+    <div class="modal-handle"></div>
+    <div class="modal-title">Seleccionar ejercicio</div>
+    <div class="search-input" style="margin-bottom:14px;">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="picker-search" placeholder="Buscar ejercicio..." value="${searchQ}" oninput="searchQ=this.value;updatePicker();">
+    </div>
+    <div id="picker-list">
+      ${filtered.map(e => `
+        <div class="ex-select-item" onclick="togglePickerEx('${e.id}')">
+          <div class="ex-checkbox ${selectedIds.has(e.id)?'checked':''}">
+            ${selectedIds.has(e.id) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+          </div>
+          <span style="font-size:15px;">${e.name}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary btn-full" onclick="closePicker()">Listo</button>
+    </div>`;
+  }
+
+  window.updatePicker = function() {
+    const filtered = DB.exercises.filter(e => e.name.toLowerCase().includes(searchQ.toLowerCase()));
+    document.getElementById('picker-list').innerHTML = filtered.map(e => `
+      <div class="ex-select-item" onclick="togglePickerEx('${e.id}')">
+        <div class="ex-checkbox ${selectedIds.has(e.id)?'checked':''}">
+          ${selectedIds.has(e.id) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+        </div>
+        <span style="font-size:15px;">${e.name}</span>
+      </div>
+    `).join('');
+  };
+
+  window.togglePickerEx = function(id) {
+    const ex = DB.exercises.find(e => e.id === id);
+    if (!ex) return;
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
+      logState.exercises = logState.exercises.filter(e => e.id !== id);
+    } else {
+      selectedIds.add(id);
+      logState.exercises.push({ id: ex.id, name: ex.name, sets:null, reps:'', material:'', kg:null, resist_used:null, resist_max:null, rpe:null, notes:'' });
+    }
+    updatePicker();
+  };
+
+  window.closePicker = function() {
+    closeModal();
+    render();
+  };
+
+  openModal(pickerContent());
+  setTimeout(() => document.getElementById('picker-search')?.focus(), 100);
+}
+
+function saveSession() {
+  if (!logState.cycle) { toast('Selecciona la fase del ciclo'); return; }
+  const sessions = DB.sessions;
+  const existing = sessions.findIndex(s => s.id === (logState.id || ''));
+  const session = { ...logState, id: logState.id || uid() };
+  if (existing >= 0) sessions[existing] = session;
+  else sessions.push(session);
+  DB.sessions = sessions;
+  resetLogState();
+  toast('Entreno guardado ✓');
+  navigate('home');
+}
+
+function resetLog() {
+  if (confirm('¿Limpiar el formulario?')) { resetLogState(); render(); }
+}
+
+// ═══════════════════════════════════════════════
+// PROGRESS PAGE
+// ═══════════════════════════════════════════════
+let progressTab = 'general';
+let selectedExercise = null;
+
+function renderProgress() {
+  const sessions = DB.sessions.sort((a,b) => a.date.localeCompare(b.date));
+
+  return `
+  <div class="page-header">
+    <h1>Progreso</h1>
+  </div>
+
+  <div class="section">
+    <div class="chip-group" style="margin-bottom:16px;">
+      <div class="chip ${progressTab==='general'?'sel':''}" onclick="progressTab='general';render();">General</div>
+      <div class="chip ${progressTab==='exercise'?'sel':''}" onclick="progressTab='exercise';render();">Por ejercicio</div>
+      <div class="chip ${progressTab==='cycle'?'sel':''}" onclick="progressTab='cycle';render();">Ciclo</div>
+    </div>
+    ${progressTab==='general' ? renderProgressGeneral(sessions) : ''}
+    ${progressTab==='exercise' ? renderProgressExercise(sessions) : ''}
+    ${progressTab==='cycle' ? renderProgressCycle(sessions) : ''}
+  </div>`;
+}
+
+function renderProgressGeneral(sessions) {
+  if (sessions.length === 0) return `<div class="empty-state"><p>Sin datos aún</p></div>`;
+
+  const last12 = sessions.slice(-12);
+  const scores = last12.map(s => calcScores(s));
+  const absScores = scores.map(s => s.absolute).filter(v => v !== null);
+  const relScores = scores.map(s => s.relative).filter(v => v !== null);
+
+  const avgAbs = absScores.length ? Math.round(absScores.reduce((a,b)=>a+b,0)/absScores.length) : null;
+  const avgRel = relScores.length ? Math.round(relScores.reduce((a,b)=>a+b,0)/relScores.length) : null;
+
+  // Per week count
+  const weekMap = {};
+  sessions.forEach(s => {
+    const d = new Date(s.date);
+    const week = `${d.getFullYear()}-W${Math.ceil((d.getDate() + new Date(d.getFullYear(), d.getMonth(), 1).getDay()) / 7)}`;
+    weekMap[week] = (weekMap[week]||0)+1;
+  });
+  const weekCounts = Object.values(weekMap).slice(-8);
+  const maxW = Math.max(...weekCounts, 1);
+
+  // Bienestar trend (last 12)
+  const bioKeys = ['sleep','energy','stress','motivation','soreness'];
+  const bioAvgs = {};
+  bioKeys.forEach(k => {
+    const vals = last12.map(s=>s[k]).filter(v=>v!=null);
+    bioAvgs[k] = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : '-';
+  });
+
+  return `
+  ${avgAbs !== null ? `
+  <div class="score-pair" style="margin-bottom:16px;">
+    <div class="score-card">
+      <div class="score-num" style="color:var(--accent-dark)">${avgAbs}</div>
+      <div class="score-label">Calidad absoluta</div>
+      <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${avgAbs}%"></div></div>
+    </div>
+    <div class="score-card">
+      <div class="score-num" style="color:var(--success)">${avgRel}</div>
+      <div class="score-label">Calidad relativa</div>
+      <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${avgRel}%;background:var(--success)"></div></div>
+    </div>
+  </div>` : ''}
+
+  <div class="chart-container">
+    <div class="chart-title">Entrenos por semana</div>
+    <div class="mini-chart">
+      ${weekCounts.map(v=>`<div class="bar" style="height:${Math.round((v/maxW)*100)}%;background:var(--accent);"></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <div class="chart-title">Bienestar promedio (últimos ${last12.length})</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${[['Sueño','sleep'],['Energía','energy'],['Estrés','stress'],['Motivación','motivation'],['Agujetas','soreness']].map(([lbl,key])=>`
+        <div>
+          <div class="flex-row" style="justify-content:space-between;margin-bottom:4px;">
+            <span class="text-sm text-muted">${lbl}</span>
+            <span class="text-sm font-bold">${bioAvgs[key]}/5</span>
+          </div>
+          <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${bioAvgs[key]!=='-'?(bioAvgs[key]/5*100).toFixed(0):0}%"></div></div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+
+  ${absScores.length > 1 ? `
+  <div class="chart-container">
+    <div class="chart-title">Evolución calidad (últimos ${absScores.length})</div>
+    <div class="mini-chart">
+      ${absScores.map((v,i)=>`<div class="bar" style="height:${v}%;background:${relScores[i]>=v?'var(--success)':'var(--accent)'};opacity:0.85;"></div>`).join('')}
+    </div>
+    <div class="flex-row mt-8" style="gap:16px;">
+      <div class="flex-row"><div style="width:10px;height:10px;border-radius:2px;background:var(--accent)"></div><span class="text-sm text-muted">Absoluta</span></div>
+      <div class="flex-row"><div style="width:10px;height:10px;border-radius:2px;background:var(--success)"></div><span class="text-sm text-muted">Relativa ≥ Abs</span></div>
+    </div>
+  </div>` : ''}`;
+}
+
+function renderProgressExercise(sessions) {
+  const exercises = DB.exercises;
+  // Count sessions per exercise
+  const exCount = {};
+  sessions.forEach(s => (s.exercises||[]).forEach(e => { exCount[e.id] = (exCount[e.id]||0)+1; }));
+  const sorted = exercises.filter(e=>exCount[e.id]>0).sort((a,b)=>(exCount[b.id]||0)-(exCount[a.id]||0));
+
+  if (!selectedExercise) {
+    return `
+    <div class="chart-container" style="margin-bottom:12px;">
+      <div class="chart-title">Frecuencia de ejercicios</div>
+      ${sorted.slice(0,10).map(e=>`
+        <div style="margin-bottom:8px;">
+          <div class="flex-row" style="justify-content:space-between;margin-bottom:4px;">
+            <span class="text-sm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.name}</span>
+            <span class="text-sm font-bold text-accent">${exCount[e.id]}x</span>
+          </div>
+          <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${Math.round(exCount[e.id]/Math.max(...Object.values(exCount))*100)}%"></div></div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="section-title">Ver progreso individual</div>
+    ${sorted.map(e=>`
+      <div class="ex-item" style="cursor:pointer;" onclick="selectedExercise='${e.id}';render();">
+        <div class="flex-row" style="justify-content:space-between;">
+          <span class="ex-name">${e.name}</span>
+          <span class="text-sm text-muted">${exCount[e.id]}x</span>
+        </div>
+      </div>
+    `).join('')}`;
+  }
+
+  // Individual exercise detail
+  const ex = exercises.find(e=>e.id===selectedExercise);
+  const exSessions = sessions.map(s => ({ date: s.date, exData: (s.exercises||[]).find(e=>e.id===selectedExercise) }))
+    .filter(s=>s.exData).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const kgData = exSessions.filter(s=>s.exData.kg).map(s=>s.exData.kg);
+  const rpeData = exSessions.filter(s=>s.exData.rpe).map(s=>s.exData.rpe);
+  const resistData = exSessions.filter(s=>s.exData.resist_used).map(s=>s.exData.resist_used);
+  const maxKg = kgData.length ? Math.max(...kgData) : null;
+
+  return `
+  <button class="btn btn-sm" style="margin-bottom:16px;" onclick="selectedExercise=null;render();">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Volver
+  </button>
+  <div style="font-size:17px;font-weight:700;margin-bottom:16px;">${ex?.name}</div>
+
+  <div class="stats-grid" style="margin-bottom:16px;">
+    <div class="stat-card"><div class="stat-val">${exSessions.length}</div><div class="stat-lbl">Veces ejecutado</div></div>
+    ${maxKg ? `<div class="stat-card"><div class="stat-val">${maxKg}<span style="font-size:13px;font-weight:400;color:var(--text3)">kg</span></div><div class="stat-lbl">Peso máximo</div></div>` : '<div></div>'}
+  </div>
+
+  ${kgData.length > 1 ? `
+  <div class="chart-container">
+    <div class="chart-title">Progresión de carga (kg)</div>
+    <div class="mini-chart">
+      ${kgData.map(v=>`<div class="bar" style="height:${Math.round((v/Math.max(...kgData))*100)}%;background:var(--accent-dark);"></div>`).join('')}
+    </div>
+    <div class="flex-row" style="justify-content:space-between;margin-top:6px;">
+      <span class="text-sm text-muted">${kgData[0]}kg</span>
+      <span class="text-sm font-bold text-accent">→ ${kgData[kgData.length-1]}kg</span>
+    </div>
+  </div>` : ''}
+
+  ${resistData.length > 1 ? `
+  <div class="chart-container">
+    <div class="chart-title">Progresión resistencia</div>
+    <div class="mini-chart">
+      ${resistData.map(v=>`<div class="bar" style="height:${Math.round((v/Math.max(...resistData))*100)}%;background:var(--cycle-folic);"></div>`).join('')}
+    </div>
+  </div>` : ''}
+
+  ${rpeData.length > 1 ? `
+  <div class="chart-container">
+    <div class="chart-title">RPE a lo largo del tiempo</div>
+    <div class="mini-chart">
+      ${rpeData.map(v=>`<div class="bar" style="height:${v*10}%;background:${v>=8?'#e07070':v>=6?'var(--accent)':'var(--success)'};"></div>`).join('')}
+    </div>
+  </div>` : ''}
+
+  <div class="section-title" style="margin-top:8px;">Historial</div>
+  ${exSessions.slice().reverse().slice(0,10).map(s=>`
+    <div class="ex-item">
+      <div class="flex-row" style="justify-content:space-between;">
+        <span class="text-sm font-bold">${formatDate(s.date)}</span>
+        <span class="text-sm text-muted">${[s.exData.sets && s.exData.sets+'x', s.exData.reps, s.exData.kg && s.exData.kg+'kg', s.exData.rpe && 'RPE '+s.exData.rpe].filter(Boolean).join(' · ')}</span>
+      </div>
+      ${s.exData.notes ? `<div class="text-sm text-muted mt-8">${s.exData.notes}</div>` : ''}
+    </div>
+  `).join('')}`;
+}
+
+function renderProgressCycle(sessions) {
+  const phases = ['Menstruación','Folicular','Ovulación','Lútea'];
+  const phaseColors = { 'Menstruación': 'var(--cycle-menst)', 'Folicular': 'var(--cycle-folic)', 'Ovulación': 'var(--cycle-ovul)', 'Lútea': 'var(--cycle-lut)' };
+  const phaseData = {};
+  phases.forEach(p => {
+    const pSess = sessions.filter(s=>s.cycle===p);
+    const scores = pSess.map(s=>calcScores(s));
+    const abs = scores.map(s=>s.absolute).filter(v=>v!==null);
+    const bio = { sleep:[], energy:[], stress:[], motivation:[], soreness:[] };
+    pSess.forEach(s => { Object.keys(bio).forEach(k => { if(s[k]!=null) bio[k].push(s[k]); }); });
+    phaseData[p] = {
+      count: pSess.length,
+      avgAbs: abs.length ? Math.round(abs.reduce((a,b)=>a+b,0)/abs.length) : null,
+      avgSleep: bio.sleep.length ? (bio.sleep.reduce((a,b)=>a+b,0)/bio.sleep.length).toFixed(1) : null,
+      avgEnergy: bio.energy.length ? (bio.energy.reduce((a,b)=>a+b,0)/bio.energy.length).toFixed(1) : null,
+      avgStress: bio.stress.length ? (bio.stress.reduce((a,b)=>a+b,0)/bio.stress.length).toFixed(1) : null,
+    };
+  });
+
+  if (sessions.length === 0) return `<div class="empty-state"><p>Sin datos aún</p></div>`;
+
+  return `
+  <div class="chart-container" style="margin-bottom:12px;">
+    <div class="chart-title">Calidad media por fase del ciclo</div>
+    <div class="mini-chart" style="align-items:flex-end;gap:8px;">
+      ${phases.map(p=>{
+        const d = phaseData[p];
+        const h = d.avgAbs || 0;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:11px;font-weight:700;color:${phaseColors[p]}">${d.avgAbs||'-'}</span>
+          <div style="width:100%;height:${h}%;min-height:4px;background:${phaseColors[p]};border-radius:3px 3px 0 0;"></div>
+          <span style="font-size:9px;color:var(--text3);text-align:center;">${p.slice(0,5)}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  ${phases.map(p=>{
+    const d = phaseData[p];
+    if (d.count === 0) return '';
+    return `
+    <div class="chart-container" style="margin-bottom:10px;">
+      <div class="flex-row" style="margin-bottom:10px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${phaseColors[p]};flex-shrink:0;"></div>
+        <span class="chart-title">${p}</span>
+        <span class="text-sm text-muted" style="margin-left:auto;">${d.count} entrenos</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        ${d.avgEnergy ? `<div style="text-align:center;"><div style="font-size:18px;font-weight:700;">${d.avgEnergy}</div><div class="text-sm text-muted">Energía</div></div>` : ''}
+        ${d.avgSleep ? `<div style="text-align:center;"><div style="font-size:18px;font-weight:700;">${d.avgSleep}</div><div class="text-sm text-muted">Sueño</div></div>` : ''}
+        ${d.avgStress ? `<div style="text-align:center;"><div style="font-size:18px;font-weight:700;">${d.avgStress}</div><div class="text-sm text-muted">Estrés</div></div>` : ''}
+      </div>
+      ${d.avgAbs ? `
+      <div class="mt-8">
+        <div class="flex-row" style="justify-content:space-between;margin-bottom:4px;">
+          <span class="text-sm text-muted">Calidad media</span>
+          <span class="text-sm font-bold">${d.avgAbs}/100</span>
+        </div>
+        <div class="score-bar-wrap"><div style="height:6px;border-radius:4px;background:${phaseColors[p]};width:${d.avgAbs}%"></div></div>
+      </div>` : ''}
+    </div>`;
+  }).join('')}`;
+}
+
+// ═══════════════════════════════════════════════
+// EXERCISES PAGE
+// ═══════════════════════════════════════════════
+let exSearch = '';
+
+function renderExercises() {
+  const exercises = DB.exercises;
+  const filtered = exercises.filter(e => e.name.toLowerCase().includes(exSearch.toLowerCase()));
+
+  return `
+  <div class="page-header">
+    <h1>Ejercicios</h1>
+    <p>${exercises.length} ejercicios</p>
+  </div>
+
+  <div class="section">
+    <div class="search-input" style="margin-bottom:12px;">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="ex-search" placeholder="Buscar ejercicio..." value="${exSearch}" oninput="exSearch=this.value;render();">
+    </div>
+    <button class="btn btn-primary btn-full btn-sm" onclick="openAddExercise()" style="margin-bottom:16px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nuevo ejercicio
+    </button>
+
+    ${filtered.length === 0 ? `<div class="empty-state"><p>No hay resultados</p></div>` :
+      filtered.map(e => `
+        <div class="ex-item">
+          <div class="flex-row" style="justify-content:space-between;">
+            <span class="ex-name">${e.name}</span>
+            <div class="flex-row">
+              <button class="btn btn-icon btn-sm" onclick="openEditExercise('${e.id}')" style="margin-right:4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn btn-icon btn-sm btn-danger" onclick="deleteExercise('${e.id}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('')
+    }
+  </div>`;
+}
+
+function openAddExercise() {
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nuevo ejercicio</div>
+    <div class="form-group">
+      <label>Nombre del ejercicio</label>
+      <input type="text" id="new-ex-name" placeholder="ej. Sentadilla búlgara" autofocus>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveNewExercise()">Guardar</button>
+  `);
+  setTimeout(() => document.getElementById('new-ex-name')?.focus(), 100);
+}
+
+function saveNewExercise() {
+  const name = document.getElementById('new-ex-name')?.value.trim();
+  if (!name) { toast('Introduce un nombre'); return; }
+  const exercises = DB.exercises;
+  if (exercises.find(e => e.name.toLowerCase() === name.toLowerCase())) { toast('Ya existe ese ejercicio'); return; }
+  exercises.push({ id: uid(), name });
+  DB.exercises = exercises;
+  closeModal();
+  render();
+  toast('Ejercicio añadido ✓');
+}
+
+function openEditExercise(id) {
+  const ex = DB.exercises.find(e => e.id === id);
+  if (!ex) return;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Editar ejercicio</div>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="edit-ex-name" value="${ex.name}">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveEditExercise('${id}')">Guardar</button>
+    <button class="btn btn-full mt-8" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function saveEditExercise(id) {
+  const name = document.getElementById('edit-ex-name')?.value.trim();
+  if (!name) return;
+  const exercises = DB.exercises;
+  const idx = exercises.findIndex(e => e.id === id);
+  if (idx >= 0) { exercises[idx].name = name; DB.exercises = exercises; }
+  closeModal();
+  render();
+  toast('Ejercicio actualizado ✓');
+}
+
+function deleteExercise(id) {
+  if (!confirm('¿Eliminar este ejercicio?')) return;
+  const exercises = DB.exercises.filter(e => e.id !== id);
+  DB.exercises = exercises;
+  render();
+  toast('Ejercicio eliminado');
+}
+
+// ═══════════════════════════════════════════════
+// SESSION DETAIL MODAL
+// ═══════════════════════════════════════════════
+function showSessionDetail(id) {
+  const session = DB.sessions.find(s => s.id === id);
+  if (!session) return;
+  const scores = calcScores(session);
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="flex-row" style="justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;">${formatDate(session.date)}</div>
+        <div style="margin-top:4px;">${cycleTag(session.cycle)}</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm" onclick="editSession('${id}')">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSession('${id}')">Borrar</button>
+      </div>
+    </div>
+
+    ${scores.absolute !== null ? `
+    <div class="score-pair" style="margin-bottom:16px;">
+      <div class="score-card">
+        <div class="score-num" style="color:var(--accent-dark)">${scores.absolute}</div>
+        <div class="score-label">Calidad absoluta</div>
+        <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${scores.absolute}%"></div></div>
+      </div>
+      <div class="score-card">
+        <div class="score-num" style="color:var(--success)">${scores.relative}</div>
+        <div class="score-label">Calidad relativa</div>
+        <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${scores.relative}%;background:var(--success)"></div></div>
+      </div>
+    </div>` : ''}
+
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${[['Sueño','sleep'],['Energía','energy'],['Estrés','stress'],['Motivación','motivation'],['Agujetas','soreness']].map(([l,k])=>
+          session[k]!=null ? `<div><div class="text-sm text-muted">${l}</div><div class="font-bold">${session[k]}/5</div></div>` : ''
+        ).join('')}
+        ${session.duration ? `<div><div class="text-sm text-muted">Duración</div><div class="font-bold">${session.duration} min</div></div>` : ''}
+        ${session.kcal ? `<div><div class="text-sm text-muted">Kcal</div><div class="font-bold">${session.kcal} kcal</div></div>` : ''}
+      </div>
+    </div>
+
+    ${session.exercises?.length > 0 ? `
+    <div class="section-title">Ejercicios (${session.exercises.length})</div>
+    ${session.exercises.map(ex=>`
+      <div class="ex-item">
+        <div class="ex-name">${ex.name}</div>
+        <div class="ex-meta">${[
+          ex.sets && ex.reps ? `${ex.sets}×${ex.reps}` : ex.sets ? `${ex.sets} series` : ex.reps || '',
+          ex.material || '',
+          ex.kg ? ex.kg+'kg' : '',
+          ex.resist_used && ex.resist_max ? `${ex.resist_used}/${ex.resist_max}` : '',
+          ex.rpe ? 'RPE '+ex.rpe : ''
+        ].filter(Boolean).join(' · ')}</div>
+        ${ex.notes ? `<div class="text-sm text-muted mt-8">${ex.notes}</div>` : ''}
+      </div>
+    `).join('')}` : ''}
+
+    ${session.notes ? `<div class="card mt-8"><div class="text-sm text-muted" style="margin-bottom:4px;">Notas</div><div style="font-size:14px;">${session.notes}</div></div>` : ''}
+  `);
+}
+
+function editSession(id) {
+  const session = DB.sessions.find(s => s.id === id);
+  if (!session) return;
+  logState = JSON.parse(JSON.stringify(session));
+  closeModal();
+  navigate('log');
+}
+
+function deleteSession(id) {
+  if (!confirm('¿Eliminar este entreno?')) return;
+  DB.sessions = DB.sessions.filter(s => s.id !== id);
+  closeModal();
+  render();
+  toast('Entreno eliminado');
+}
+
+function showAllSessions() {
+  const sessions = DB.sessions.sort((a,b) => b.date.localeCompare(a.date));
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Todos los entrenos</div>
+    ${sessions.map(s=>`
+      <div class="history-item" onclick="closeModal();setTimeout(()=>showSessionDetail('${s.id}'),100);">
+        <div class="flex-row" style="justify-content:space-between;">
+          <div>
+            <div class="history-date">${formatDate(s.date)}</div>
+            <div class="history-exs">${(s.exercises||[]).length} ejercicios${s.duration?' · '+s.duration+'min':''}</div>
+          </div>
+          ${cycleTag(s.cycle)}
+        </div>
+      </div>
+    `).join('')}
+  `);
+}
+
+// ═══════════════════════════════════════════════
+// MODAL SYSTEM
+// ═══════════════════════════════════════════════
+function openModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function closeModalOnOverlay(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+// ═══════════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════════
+function attachListeners() {
+  // Nothing extra needed — all handlers are inline
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════
+function exportData() {
+  const data = {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    sessions: DB.sessions,
+    exercises: DB.exercises
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'entrenos_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup exportado ✓');
+}
+
+function triggerImport() {
+  document.getElementById('import-file').click();
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.sessions || !data.exercises) throw new Error('Formato inválido');
+      const existingIds = new Set(DB.sessions.map(s => s.id));
+      const newSessions = data.sessions.filter(s => !existingIds.has(s.id));
+      const existingExIds = new Set(DB.exercises.map(ex => ex.id));
+      const newExercises = data.exercises.filter(ex => !existingExIds.has(ex.id));
+      DB.sessions = [...DB.sessions, ...newSessions];
+      DB.exercises = [...DB.exercises, ...newExercises];
+      toast(`Importados: ${newSessions.length} entrenos, ${newExercises.length} ejercicios nuevos ✓`);
+      render();
+    } catch(err) {
+      toast('Error: archivo no válido');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// HISTORICAL DATA (from excel import)
+const HISTORICAL_DATA = {"version":1,"exported_at":"2026-05-11T11:09:21.943902","sessions":[{"id":"imported_1","date":"2025-11-03","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_1"},{"name":"Curl de bíceps martillo con goma","sets":3,"reps":"20s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x20s\n(2/3)","id":"ex_3"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_28"},{"name":"Sentadilla sumo KB","sets":3,"reps":"15","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x15","id":"ex_34"}]},{"id":"imported_2","date":"2025-11-05","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":2,"reps":"10","material":"Miniband","kg":null,"resist_used":2,"resist_max":5,"rpe":null,"notes":"2x10\n(2/5)","id":"ex_0"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_12"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_19"},{"name":"Puente de isquios isométrico","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10","id":"ex_22"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"10/lado","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x10/lado\n(2/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_33"}]},{"id":"imported_3","date":"2025-11-06","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Desplazamiento lateral tocando tibias","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s","id":"ex_4"},{"name":"Jumping Jacks","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n(adaptados)","id":"ex_7"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x15\n(2/3)","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"}]},{"id":"imported_4","date":"2025-11-10","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"12/lado","material":"Miniband","kg":null,"resist_used":3,"resist_max":5,"rpe":null,"notes":"3x12/lado\n(3/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"8","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(adaptados)","id":"ex_7"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x30s\n(2/3)","id":"ex_26"},{"name":"Sentadilla goblet","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_32"}]},{"id":"imported_5","date":"2025-11-13","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(2/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":4,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12/lado","id":"ex_38"}]},{"id":"imported_6","date":"2025-11-15","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":3,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(3/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_2"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_9"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_14"}]},{"id":"imported_7","date":"2025-11-17","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":4,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12","id":"ex_6"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":4,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10/lado","id":"ex_24"},{"name":"Sentadilla box goblet","sets":4,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10","id":"ex_31"}]},{"id":"imported_8","date":"2025-11-18","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5 kg","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(2/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"}]},{"id":"imported_9","date":"2025-11-20","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":4,"reps":"10","material":"Barra","kg":3.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10\n3.5 kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":4,"reps":"10","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"4x10\n(2/3)","id":"ex_27"}]},{"id":"imported_10","date":"2025-11-24","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n2.5 kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":3.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n3.5 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x30s\n(2/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"Barra","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n2.5 kg","id":"ex_29"}]},{"id":"imported_11","date":"2025-11-26","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(2/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_12","date":"2025-11-27","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x12\n(2/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_13","date":"2025-12-01","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_1"},{"name":"Curl de bíceps martillo con goma","sets":3,"reps":"20s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x20s\n(2/3)","id":"ex_3"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10","material":"Barra","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5 kg","id":"ex_28"},{"name":"Sentadilla goblet","sets":3,"reps":"15","material":"Barra","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x15\n4.5kg\n(sumo)","id":"ex_32"}]},{"id":"imported_14","date":"2025-12-02","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5 kg","id":"ex_12"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"10","material":"Barra","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5kg","id":"ex_19"},{"name":"Puente de isquios isométrico","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10","id":"ex_22"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"10/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x10/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_33"}]},{"id":"imported_15","date":"2025-12-04","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Desplazamiento lateral tocando tibias","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s","id":"ex_4"},{"name":"Jumping Jacks","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n(adaptados)","id":"ex_7"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x15\n(2/3)","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"}]},{"id":"imported_16","date":"2025-12-12","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"12/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x12/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"8","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(adaptados)","id":"ex_7"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20\n2.5 kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"12/lado","material":"Barra","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n4.5 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x30s\n(2/3)","id":"ex_26"},{"name":"Sentadilla goblet","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_32"}]},{"id":"imported_17","date":"2025-12-13","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":4,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12/lado","id":"ex_38"}]},{"id":"imported_18","date":"2025-12-14","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg","id":"ex_2"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":2,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(2/5)","id":"ex_9"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_14"}]},{"id":"imported_19","date":"2025-12-15","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":4,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12","id":"ex_6"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n2.5kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"10/lado","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado\n5kg","id":"ex_24"},{"name":"Sentadilla box goblet","sets":4,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10","id":"ex_31"}]},{"id":"imported_20","date":"2025-12-18","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":4.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4.5 kg","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"}]},{"id":"imported_21","date":"2025-12-19","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":4,"reps":"12","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12\n5kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":4,"reps":"10","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"4x10\n(3/3)","id":"ex_27"}]},{"id":"imported_22","date":"2025-12-22","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":2.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n2kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n5.5 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado","id":"ex_29"}]},{"id":"imported_23","date":"2025-12-23","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n2.5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_24","date":"2025-12-26","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"10","material":"Barra","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5.5 kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_25","date":"2025-12-29","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":4,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12","id":"ex_6"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n3kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":4,"reps":"10/lado","material":"Barra","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10/lado\n5.5 kg","id":"ex_24"},{"name":"Sentadilla box goblet","sets":4,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10","id":"ex_31"}]},{"id":"imported_26","date":"2026-01-02","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n6.5 kg","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"}]},{"id":"imported_27","date":"2026-01-03","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":6.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n6kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"10","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x10\n(3/3)","id":"ex_27"}]},{"id":"imported_28","date":"2026-01-05","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n3kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n6.5 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado","id":"ex_29"}]},{"id":"imported_29","date":"2026-01-08","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"12","material":"Kettlebell","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n6.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_30","date":"2026-01-11","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":6.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n6kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_31","date":"2026-01-12","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"12/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x12/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"8","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(adaptados)","id":"ex_7"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n3kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"12/lado","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n6.5 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla goblet","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_32"}]},{"id":"imported_32","date":"2026-01-14","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n3 kg","id":"ex_2"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_9"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_14"}]},{"id":"imported_33","date":"2026-01-16","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":4,"reps":"10","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10\n4 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":4,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12/lado","id":"ex_38"}]},{"id":"imported_34","date":"2026-01-18","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Pallof press de rodillas mano colateral isotónico","sets":3,"reps":"10s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10s","id":"ex_8"},{"name":"Plancha lateral isométrica","sets":5,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"5x20s","id":"ex_11"},{"name":"Puente de glúteo con pesa rusa","sets":5,"reps":"24","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"5x24","id":"ex_20"},{"name":"Puente de glúteo unilateral KB","sets":null,"reps":"","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"No salió. Cambiado por puente glúteo normal","id":"ex_21"},{"name":"Pull over bicho muerto","sets":5,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"5x30s","id":"ex_23"}]},{"id":"imported_35","date":"2026-01-19","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":4,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12","id":"ex_6"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n3kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":4,"reps":"10/lado","material":"Barra","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10/lado\n10 kg","id":"ex_24"},{"name":"Sentadilla box goblet","sets":4,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10","id":"ex_31"}]},{"id":"imported_36","date":"2026-01-21","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10 kg","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"}]},{"id":"imported_37","date":"2026-01-23","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":4,"reps":"12","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12\n6.5kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":4,"reps":"10","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"4x10\n(3/3)","id":"ex_27"}]},{"id":"imported_38","date":"2026-01-28","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n4kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n9 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado","id":"ex_29"}]},{"id":"imported_39","date":"2026-01-30","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_40","date":"2026-01-31","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n6.5kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_41","date":"2026-02-03","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":4,"reps":"12","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12\n6.5kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":4,"reps":"10","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"4x10\n(3/3)","id":"ex_27"}]},{"id":"imported_42","date":"2026-02-07","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10 kg","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"}]},{"id":"imported_43","date":"2026-02-08","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":4,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12","id":"ex_6"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n4kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":4,"reps":"10/lado","material":"Barra","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10/lado\n10 kg","id":"ex_24"},{"name":"Sentadilla box goblet","sets":4,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10","id":"ex_31"}]},{"id":"imported_44","date":"2026-02-10","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"12/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x12/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"8","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(adaptados)","id":"ex_7"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n4kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"12/lado","material":"Barra","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n9 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla goblet","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_32"}]},{"id":"imported_45","date":"2026-02-12","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg","id":"ex_2"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_9"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5 kg/m","id":"ex_14"}]},{"id":"imported_46","date":"2026-02-14","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":2.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n2.5 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":4,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10\n5 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":4,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12/lado","id":"ex_38"}]},{"id":"imported_47","date":"2026-02-15","cycle":"Menstruación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Pallof press de rodillas mano colateral isotónico","sets":3,"reps":"10s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10s","id":"ex_8"},{"name":"Plancha lateral isométrica","sets":5,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"5x20s","id":"ex_11"},{"name":"Puente de glúteo con pesa rusa","sets":5,"reps":"20","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"5x20","id":"ex_20"},{"name":"Puente de glúteo unilateral KB","sets":null,"reps":"","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"No salió. Cambiado por puente glúteo normal","id":"ex_21"},{"name":"Pull over bicho muerto","sets":5,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"5x30s","id":"ex_23"}]},{"id":"imported_48","date":"2026-02-19","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_1"},{"name":"Curl de bíceps martillo con goma","sets":3,"reps":"20s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x20s\n(2/3)","id":"ex_3"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10","material":"Barra","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9kg","id":"ex_28"},{"name":"Sentadilla sumo KB","sets":3,"reps":"15","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x15","id":"ex_34"}]},{"id":"imported_49","date":"2026-02-20","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10.5 kg","id":"ex_12"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"10","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n6.5kg","id":"ex_19"},{"name":"Puente de isquios isométrico","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10","id":"ex_22"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"10/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x10/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_33"}]},{"id":"imported_50","date":"2026-02-21","cycle":"Folicular","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Desplazamiento lateral tocando tibias","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s","id":"ex_4"},{"name":"Jumping Jacks","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n(adaptados)","id":"ex_7"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x15\n(3/3)","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"}]},{"id":"imported_51","date":"2026-02-23","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n4kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n10 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado","id":"ex_29"}]},{"id":"imported_52","date":"2026-02-27","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n7.5 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_53","date":"2026-02-28","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n7.5 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":6.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n6.5kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_54","date":"2026-03-02","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"12/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x12/lado\n(4/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"8","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(parte adaptados, parte normal)","id":"ex_7"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n4kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"12/lado","material":"Barra","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n10 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla goblet","sets":3,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10","id":"ex_32"}]},{"id":"imported_55","date":"2026-03-03","cycle":"Ovulación","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10.5 kg","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":4,"reps":"10","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10\n7.5 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":4,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12/lado","id":"ex_38"}]},{"id":"imported_56","date":"2026-03-04","cycle":"Lútea","sleep":null,"energy":null,"stress":null,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(4/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4 kg","id":"ex_2"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(4/5)","id":"ex_9"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n7.5 kg/m","id":"ex_14"}]},{"id":"imported_57","date":"2026-03-09","cycle":"Lútea","sleep":2.0,"energy":3.0,"stress":4.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n10.5 kg","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n4kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12/lado\n(3/3)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"}]},{"id":"imported_58","date":"2026-03-10","cycle":"Lútea","sleep":4.0,"energy":3.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"12/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x12/lado\n(5/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"8","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(parte adaptados, parte normal)","id":"ex_7"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n4kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"12/lado","material":"Barra","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n10 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s\n(3/3)","id":"ex_26"},{"name":"Sentadilla goblet","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_32"}]},{"id":"imported_59","date":"2026-03-11","cycle":"Lútea","sleep":5.0,"energy":4.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":1,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"1x30s\n1x20s\n1x15s","id":"ex_6"},{"name":"Jumping Jacks","sets":1,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"1x30s\n1x20s\n1x15s\n(sin adaptar!)","id":"ex_7"},{"name":"Puente de glúteo unilateral KB","sets":1,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"1x30s\n1x20s\n1x15s\n(salió a medias!)","id":"ex_21"},{"name":"Remo con goma","sets":1,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"1x30s\n1x20s\n1x15s\n(3/3)","id":"ex_26"},{"name":"Sentadilla sumo KB","sets":1,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"1x30s\n1x20s\n1x15s\n(sumo)","id":"ex_34"},{"name":"Skipping","sets":1,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"1x30s\n1x20s\n1x15s","id":"ex_36"}]},{"id":"imported_60","date":"2026-03-17","cycle":"Menstruación","sleep":3.5,"energy":5.0,"stress":4.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_1"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n4kg/m","id":"ex_16"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10","material":"Barra","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9kg","id":"ex_28"},{"name":"Sentadilla box con extensión de brazos","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_30"},{"name":"Sentadilla box goblet","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10","id":"ex_31"},{"name":"Sentadilla sumo KB","sets":3,"reps":"12","material":"Kettlebell","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5 kg","id":"ex_34"},{"name":"Mini zancadas con extensión vertical de brazos","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_37"}]},{"id":"imported_61","date":"2026-03-19","cycle":"Menstruación","sleep":4.0,"energy":2.0,"stress":5.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(sin adaptar!)","id":"ex_7"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"12","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n10.5 kg","id":"ex_12"},{"name":"Peso muerto a una pierna con mochila","sets":3,"reps":"5/lado","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x5/lado\n(5kg)","id":"ex_13"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n(7kg)","id":"ex_19"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"6/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x6/lado","id":"ex_38"}]},{"id":"imported_62","date":"2026-03-21","cycle":"Folicular","sleep":5.0,"energy":3.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(5/5)","id":"ex_0"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"8/lado","material":"Miniband","kg":null,"resist_used":4,"resist_max":5,"rpe":null,"notes":"3x8/lado\n(4/5)","id":"ex_9"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7kg","id":"ex_18"},{"name":"Pull over bicho muerto","sets":3,"reps":"10","material":"Barra","kg":4.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n4 kg","id":"ex_23"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x15\n(3/3)","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"}]},{"id":"imported_63","date":"2026-03-24","cycle":"Folicular","sleep":3.0,"energy":4.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":4,"reps":"12","material":"Mancuerna","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12\n7.5 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s\n5kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"10/lado","material":"Barra","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado\n10.5 kg","id":"ex_24"},{"name":"Remo con goma","sets":4,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"4x12\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado","id":"ex_29"}]},{"id":"imported_64","date":"2026-03-27","cycle":"Folicular","sleep":2.0,"energy":2.0,"stress":5.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(5/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"10","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x10\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_39"}]},{"id":"imported_65","date":"2026-03-29","cycle":"Ovulación","sleep":4.0,"energy":4.0,"stress":1.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":14.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n14 kg (barra)","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s\n(5.5kg)","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_66","date":"2026-03-30","cycle":"Ovulación","sleep":4.0,"energy":4.0,"stress":1.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(5/5)","id":"ex_0"},{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":4,"reps":"12","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12\n9 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s (5/6/6 reps)\n5kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":8.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s (15/14/15 reps)\n(8kg)","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":12.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n12 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s (15/15/14 reps)\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n3kg","id":"ex_29"}]},{"id":"imported_67","date":"2026-03-31","cycle":"Ovulación","sleep":4.0,"energy":2.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n18 kg (barra)","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":8.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n8 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"12","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s (17/17/18 reps)\n(9kg)","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_68","date":"2026-04-01","cycle":"Ovulación","sleep":5.0,"energy":4.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(5/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_69","date":"2026-04-06","cycle":"Lútea","sleep":5.0,"energy":3.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":4,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x12","id":"ex_6"},{"name":"Press francés banco con mancuernas","sets":4,"reps":"20s","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s (6/6/6/8)\n5kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":4,"reps":"30s","material":"Kettlebell","kg":8.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x30s (14/14/14/16)\n(8kg)","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":4,"reps":"10/lado","material":"Barra","kg":12.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10/lado\n12 kg","id":"ex_24"},{"name":"Sentadilla box goblet","sets":4,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x10","id":"ex_31"}]},{"id":"imported_70","date":"2026-04-08","cycle":"Lútea","sleep":3.0,"energy":3.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n18 kg (barra)","id":"ex_12"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s (16/16/15 reps)\n(10kg)","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"}]},{"id":"imported_71","date":"2026-04-10","cycle":"Lútea","sleep":4.0,"energy":2.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(5/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7.5kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"10","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x10\n(3/3)","id":"ex_27"}]},{"id":"imported_72","date":"2026-04-14","cycle":"Lútea","sleep":4.0,"energy":3.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_1"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s (6/6/6)\n5kg/m","id":"ex_16"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10/lado","material":"Barra","kg":10.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado\n10kg","id":"ex_28"},{"name":"Sentadilla box con extensión de brazos","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_30"},{"name":"Sentadilla box goblet","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10","id":"ex_31"},{"name":"Sentadilla sumo KB","sets":3,"reps":"12","material":"Kettlebell","kg":6.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n6 kg","id":"ex_34"},{"name":"Mini zancadas con extensión vertical de brazos","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_37"}]},{"id":"imported_73","date":"2026-04-16","cycle":"Lútea","sleep":4.0,"energy":2.0,"stress":4.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(5/5)","id":"ex_0"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"8/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x8/lado\n(5/5)","id":"ex_9"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7kg","id":"ex_18"},{"name":"Pull over bicho muerto","sets":3,"reps":"10","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg","id":"ex_23"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x15\n(3/3)","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"}]},{"id":"imported_74","date":"2026-04-17","cycle":"Lútea","sleep":5.0,"energy":1.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(adaptados)","id":"ex_7"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"12","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n18 kg (barra)","id":"ex_12"},{"name":"Peso muerto a una pierna con mochila","sets":3,"reps":"5/lado","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x5/lado\n(5kg)","id":"ex_13"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n(7kg)","id":"ex_19"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s (14/14/13 reps)\n(18kg)","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"6/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x6/lado","id":"ex_38"}]},{"id":"imported_75","date":"2026-04-21","cycle":"Lútea","sleep":5.0,"energy":2.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Press banca inclinado con dos mancuernas","sets":3,"reps":"12","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n9 kg/m","id":"ex_15"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s (6/7/6 reps)\n5kg/m","id":"ex_16"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s (14/14/15 reps)\n(10.5kg)","id":"ex_20"},{"name":"Remo a una mano con mancuerna en apoyo","sets":3,"reps":"8/lado","material":"Barra","kg":12.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n12 kg","id":"ex_24"},{"name":"Remo con goma","sets":3,"reps":"30s","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x30s (14/14/15 reps)\n(3/3)","id":"ex_26"},{"name":"Sentadilla box pie quebrado goblet","sets":3,"reps":"8/lado","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x8/lado\n3kg","id":"ex_29"}]},{"id":"imported_76","date":"2026-04-23","cycle":"Lútea","sleep":3.0,"energy":4.0,"stress":3.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Elevaciones laterales","sets":3,"reps":"10","material":"Mancuerna","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg/m","id":"ex_5"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n18 kg (barra)","id":"ex_12"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9 kg/m","id":"ex_14"},{"name":"Press militar","sets":3,"reps":"10","material":"Mancuerna","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n5kg/m","id":"ex_17"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"35s","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x35s (15/17/14 reps)\n(18kg)","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"30s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_38"}]},{"id":"imported_77","date":"2026-04-25","cycle":"Lútea","sleep":5.0,"energy":3.0,"stress":1.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"15/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x15/lado\n(5/5)","id":"ex_0"},{"name":"Curl de bíceps","sets":3,"reps":"12","material":"Barra","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n5.5 kg","id":"ex_2"},{"name":"Press de banca mancuernas (suelo)","sets":3,"reps":"10","material":"Mancuerna","kg":9.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n9 kg/m","id":"ex_14"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7kg","id":"ex_18"},{"name":"Remo con goma a una mano","sets":3,"reps":"12","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x12\n(3/3)","id":"ex_27"},{"name":"Zancada frontal con mancuernas","sets":3,"reps":"12/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado","id":"ex_39"}]},{"id":"imported_78","date":"2026-04-28","cycle":"Menstruación","sleep":5.0,"energy":4.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_1"},{"name":"Curl de bíceps martillo con goma","sets":3,"reps":"20s","material":"Goma","kg":null,"resist_used":2,"resist_max":3,"rpe":null,"notes":"3x20s\n(2/3)","id":"ex_3"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10/lado","material":"Barra","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado\n10.5kg","id":"ex_28"},{"name":"Sentadilla sumo KB","sets":3,"reps":"15","material":"Kettlebell","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x15\n(7kg)","id":"ex_34"}]},{"id":"imported_79","date":"2026-05-01","cycle":"Menstruación","sleep":5.0,"energy":3.0,"stress":1.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(5/5)","id":"ex_0"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"10","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n18 kg (barra)","id":"ex_12"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"10","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n(7kg)","id":"ex_19"},{"name":"Puente de isquios isométrico","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10 (salió!)","id":"ex_22"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"10/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_33"}]},{"id":"imported_80","date":"2026-05-02","cycle":"Folicular","sleep":5.0,"energy":2.0,"stress":1.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Desplazamiento lateral tocando tibias","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s (tabata)","id":"ex_4"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x15","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"},{"name":"Skipping","sets":4,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"4x20s (tabata)","id":"ex_36"}]},{"id":"imported_81","date":"2026-05-05","cycle":"Folicular","sleep":5.0,"energy":3.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Boxeo al aire","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_1"},{"name":"Press francés banco con mancuernas","sets":3,"reps":"20s","material":"Mancuerna","kg":5.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n5.5kg/m","id":"ex_16"},{"name":"Remo a una mano con mochila","sets":3,"reps":"10/lado","material":"Barra","kg":10.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado\n10.5kg","id":"ex_28"},{"name":"Sentadilla box con extensión de brazos","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s","id":"ex_30"},{"name":"Sentadilla box goblet","sets":2,"reps":"10","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"2x10","id":"ex_31"},{"name":"Sentadilla sumo KB","sets":3,"reps":"12","material":"Kettlebell","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n(7kg)","id":"ex_34"},{"name":"Mini zancadas con extensión vertical de brazos","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_37"}]},{"id":"imported_82","date":"2026-05-08","cycle":"Ovulación","sleep":5.0,"energy":2.0,"stress":2.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Flexiones inclinadas","sets":3,"reps":"12","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12","id":"ex_6"},{"name":"Jumping Jacks","sets":3,"reps":"20s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x20s\n(adaptados)","id":"ex_7"},{"name":"Peso muerto rumano con kettle/barra","sets":3,"reps":"12","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n18 kg (barra)","id":"ex_12"},{"name":"Peso muerto a una pierna con mochila","sets":3,"reps":"5/lado","material":"Barra","kg":5.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x5/lado\n(5kg)","id":"ex_13"},{"name":"Press vertical de hombros con mochila","sets":3,"reps":"12","material":"Barra","kg":7.5,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n(7.5kg)","id":"ex_19"},{"name":"Puente de glúteo con pesa rusa","sets":3,"reps":"30s","material":"Kettlebell","kg":18.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x30s (14/14/12 reps)\n(18kg)","id":"ex_20"},{"name":"Remo a una mano sentado (goma)","sets":3,"reps":"12/lado","material":"Goma","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12/lado\n(3/3, ambas gomas en una mano)","id":"ex_25"},{"name":"Sentadilla isométrica en pared","sets":3,"reps":"25s","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x25s","id":"ex_33"},{"name":"Zancadas en pared","sets":3,"reps":"6/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x6/lado","id":"ex_38"}]},{"id":"imported_83","date":"2026-05-10","cycle":"Ovulación","sleep":5.0,"energy":2.0,"stress":1.0,"motivation":null,"soreness":null,"duration":null,"kcal":null,"notes":"","exercises":[{"name":"Apertura de cadera miniband (tumbada)","sets":3,"reps":"10/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x10/lado\n(5/5)","id":"ex_0"},{"name":"Pasos laterales con miniband (larga)","sets":3,"reps":"8/lado","material":"Miniband","kg":null,"resist_used":5,"resist_max":5,"rpe":null,"notes":"3x8/lado\n(5/5)","id":"ex_9"},{"name":"Press de tríceps bilateral (agarre supino)","sets":3,"reps":"12","material":"Barra","kg":7.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x12\n7kg","id":"ex_18"},{"name":"Pull over bicho muerto","sets":3,"reps":"10","material":"Barra","kg":3.0,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10\n3 kg","id":"ex_23"},{"name":"Remo con goma","sets":3,"reps":"15","material":"Goma","kg":null,"resist_used":3,"resist_max":3,"rpe":null,"notes":"3x15\n(3/3)","id":"ex_26"},{"name":"Sentadilla + subida de rodilla","sets":3,"reps":"10/lado","material":"","kg":null,"resist_used":null,"resist_max":null,"rpe":null,"notes":"3x10/lado","id":"ex_35"}]}],"exercises":[{"id":"ex_0","name":"Apertura de cadera miniband (tumbada)"},{"id":"ex_1","name":"Boxeo al aire"},{"id":"ex_2","name":"Curl de bíceps"},{"id":"ex_3","name":"Curl de bíceps martillo con goma"},{"id":"ex_4","name":"Desplazamiento lateral tocando tibias"},{"id":"ex_5","name":"Elevaciones laterales"},{"id":"ex_6","name":"Flexiones inclinadas"},{"id":"ex_7","name":"Jumping Jacks"},{"id":"ex_8","name":"Pallof press de rodillas mano colateral isotónico"},{"id":"ex_9","name":"Pasos laterales con miniband (larga)"},{"id":"ex_10","name":"Plancha"},{"id":"ex_11","name":"Plancha lateral isométrica"},{"id":"ex_12","name":"Peso muerto rumano con kettle/barra"},{"id":"ex_13","name":"Peso muerto a una pierna con mochila"},{"id":"ex_14","name":"Press de banca mancuernas (suelo)"},{"id":"ex_15","name":"Press banca inclinado con dos mancuernas"},{"id":"ex_16","name":"Press francés banco con mancuernas"},{"id":"ex_17","name":"Press militar"},{"id":"ex_18","name":"Press de tríceps bilateral (agarre supino)"},{"id":"ex_19","name":"Press vertical de hombros con mochila"},{"id":"ex_20","name":"Puente de glúteo con pesa rusa"},{"id":"ex_21","name":"Puente de glúteo unilateral KB"},{"id":"ex_22","name":"Puente de isquios isométrico"},{"id":"ex_23","name":"Pull over bicho muerto"},{"id":"ex_24","name":"Remo a una mano con mancuerna en apoyo"},{"id":"ex_25","name":"Remo a una mano sentado (goma)"},{"id":"ex_26","name":"Remo con goma"},{"id":"ex_27","name":"Remo con goma a una mano"},{"id":"ex_28","name":"Remo a una mano con mochila"},{"id":"ex_29","name":"Sentadilla box pie quebrado goblet"},{"id":"ex_30","name":"Sentadilla box con extensión de brazos"},{"id":"ex_31","name":"Sentadilla box goblet"},{"id":"ex_32","name":"Sentadilla goblet"},{"id":"ex_33","name":"Sentadilla isométrica en pared"},{"id":"ex_34","name":"Sentadilla sumo KB"},{"id":"ex_35","name":"Sentadilla + subida de rodilla"},{"id":"ex_36","name":"Skipping"},{"id":"ex_37","name":"Mini zancadas con extensión vertical de brazos"},{"id":"ex_38","name":"Zancadas en pared"},{"id":"ex_39","name":"Zancada frontal con mancuernas"}]};
+
+function loadHistoricalData() {
+  if (localStorage.getItem('historical_loaded')) {
+    toast('El historial ya estaba cargado');
+    return;
+  }
+  const existingIds = new Set(DB.sessions.map(s => s.id));
+  const newSessions = HISTORICAL_DATA.sessions.filter(s => !existingIds.has(s.id));
+  const existingExIds = new Set(DB.exercises.map(ex => ex.id));
+  const newExercises = HISTORICAL_DATA.exercises.filter(ex => !existingExIds.has(ex.id));
+  DB.sessions = [...DB.sessions, ...newSessions];
+  // Update exercises (replace with historical which have proper names)
+  if (newExercises.length > 0) DB.exercises = [...DB.exercises, ...newExercises];
+  localStorage.setItem('historical_loaded', '1');
+  toast(`Historial cargado: ${newSessions.length} entrenos ✓`);
+  render();
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+// Auto-load historical data on first run
+if (!localStorage.getItem('historical_loaded')) {
+  loadHistoricalData();
+}
+render();
+</script>
+</body>
+</html>
