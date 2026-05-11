@@ -254,7 +254,8 @@ let currentPage = 'home';
 function navigate(page) {
   currentPage = page;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('nav-' + page).classList.add('active');
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
   render();
 }
 
@@ -265,6 +266,7 @@ function render() {
   else if (currentPage === 'progress') c.innerHTML = renderProgress();
   else if (currentPage === 'exercises') c.innerHTML = renderExercises();
   else if (currentPage === 'settings') c.innerHTML = renderSettings();
+  else if (currentPage === 'live') c.innerHTML = renderLive();
   attachListeners();
 }
 
@@ -341,11 +343,32 @@ function renderHome() {
   const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
   const weekSess = sessions.filter(s => new Date(s.date) >= weekStart).length;
 
+  const banners = getSmartBanner();
+  const stagnated = getStagnatedExercises();
+
   return `
   <div class="page-header">
     <h1>Hola 👋</h1>
     <p>${new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' })}</p>
   </div>
+
+  ${banners ? banners.map(b => `
+  <div class="section" style="padding-bottom:0;">
+    <div class="card" style="border-color:${b.border};background:${b.color};cursor:${b.action?'pointer':'default'};" onclick="${b.action||''}">
+      <div style="font-size:13px;font-weight:600;color:${b.textColor};">${b.msg}</div>
+      ${b.sub ? `<div style="font-size:12px;color:${b.textColor};opacity:.8;margin-top:2px;">${b.sub}</div>` : ''}
+    </div>
+  </div>`).join('') : ''}
+
+  ${stagnated.length > 0 ? `
+  <div class="section" style="padding-bottom:0;">
+    <div class="card" style="border-color:var(--danger);background:var(--danger-bg);cursor:pointer;" onclick="progressTab='exercise';navigate('progress');">
+      <div style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:4px;">
+        ⚠ ${stagnated.length} ejercicio${stagnated.length>1?'s':''} estancado${stagnated.length>1?'s':''}
+      </div>
+      <div style="font-size:12px;color:var(--danger);opacity:.85;">${stagnated.slice(0,2).map(e=>e.name).join(', ')}${stagnated.length>2?' y '+(stagnated.length-2)+' más':''}</div>
+    </div>
+  </div>` : ''}
 
   <div class="section">
     <div class="stats-grid">
@@ -377,6 +400,10 @@ function renderHome() {
     <button class="btn btn-primary btn-full" onclick="navigate('log')" style="padding:14px;font-size:16px;">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Registrar entreno de hoy
+    </button>
+    <button class="btn btn-full" onclick="startLiveSetup()" style="padding:12px;font-size:15px;margin-top:8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Entreno en vivo
     </button>
   </div>` : `
   <div class="section">
@@ -666,7 +693,267 @@ function saveSession() {
 }
 
 function resetLog() {
-  if (confirm('¿Limpiar el formulario?')) { resetLogState(); render(); }
+  confirmModal('¿Limpiar el formulario?', () => { resetLogState(); render(); }, 'Limpiar');
+}
+
+
+// ═══════════════════════════════════════════════
+// ANALYSIS ENGINE
+// ═══════════════════════════════════════════════
+
+// ── Stagnation detection ──────────────────────
+function getStagnatedExercises() {
+  const sessions = DB.sessions.sort((a,b) => a.date.localeCompare(b.date));
+  const threshold = (getSettings().stagnation_sessions || 5);
+  const exMap = {}; // exId -> [{date, kg, resist_used, reps_num, rpe}]
+
+  sessions.forEach(s => {
+    (s.exercises||[]).forEach(ex => {
+      if (!exMap[ex.id]) exMap[ex.id] = [];
+      // Extract numeric reps
+      const repsNum = ex.reps ? parseFloat(ex.reps) || null : null;
+      exMap[ex.id].push({ date: s.date, kg: ex.kg||null, resist: ex.resist_used||null, reps: repsNum, rpe: ex.rpe||null, name: ex.name });
+    });
+  });
+
+  const stagnated = [];
+  const exLookup = {};
+  DB.exercises.forEach(e => { exLookup[e.id] = e; });
+
+  Object.entries(exMap).forEach(([id, history]) => {
+    if (history.length < threshold) return;
+    if (exLookup[id] && exLookup[id].trackStagnation === false) return;
+    const recent = history.slice(-threshold);
+    // Check if ANY metric improved across the window
+    const first = recent[0];
+    const hasProgress = recent.slice(1).some(r => {
+      const kgProg    = r.kg   && first.kg   && r.kg   > first.kg;
+      const resistProg= r.resist && first.resist && r.resist > first.resist;
+      const repsProg  = r.reps && first.reps && r.reps > first.reps;
+      const rpeProg   = r.rpe  && first.rpe  && r.rpe  < first.rpe; // lower RPE = easier = progress
+      return kgProg || resistProg || repsProg || rpeProg;
+    });
+    if (!hasProgress) {
+      stagnated.push({ id, name: recent[0].name, sessions: history.length, recentSessions: threshold,
+        lastKg: recent[recent.length-1].kg, lastResist: recent[recent.length-1].resist });
+    }
+  });
+  return stagnated;
+}
+
+// ── Volume calculation ─────────────────────────
+function calcSessionVolume(session) {
+  // Volume = sum of (sets × reps_num) across exercises with numeric reps
+  let vol = 0;
+  (session.exercises||[]).forEach(ex => {
+    const sets = ex.sets || 0;
+    const reps = parseFloat(ex.reps) || 0;
+    if (sets && reps) vol += sets * reps;
+  });
+  return vol || null;
+}
+
+function calcSessionLoad(session) {
+  // Weighted load = sum of (sets × reps × kg) for exercises with kg
+  let load = 0, count = 0;
+  (session.exercises||[]).forEach(ex => {
+    const sets = ex.sets || 0;
+    const reps = parseFloat(ex.reps) || 0;
+    const kg   = ex.kg || 0;
+    if (sets && reps && kg) { load += sets * reps * kg; count++; }
+  });
+  return count > 0 ? Math.round(load) : null;
+}
+
+// ── Correlations ───────────────────────────────
+function computeCorrelations() {
+  const sessions = DB.sessions.filter(s =>
+    s.energy != null || s.sleep != null || s.stress != null || s.motivation != null || s.soreness != null
+  );
+  if (sessions.length < 6) return [];
+
+  const insights = [];
+
+  // Helper: mean of array
+  const mean = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+
+  // ── 1. Performance by cycle phase ──
+  const phases = ['Menstruación','Folicular','Ovulación','Lútea'];
+  const phaseScores = {};
+  phases.forEach(p => {
+    const sc = sessions.filter(s=>s.cycle===p).map(s=>calcScores(s).absolute).filter(v=>v!=null&&v>0);
+    if (sc.length >= 2) phaseScores[p] = { avg: Math.round(mean(sc)), n: sc.length };
+  });
+  if (Object.keys(phaseScores).length >= 2) {
+    const sorted = Object.entries(phaseScores).sort((a,b)=>b[1].avg-a[1].avg);
+    const best = sorted[0], worst = sorted[sorted.length-1];
+    const diff = best[1].avg - worst[1].avg;
+    if (diff >= 5) {
+      insights.push({
+        type: 'cycle',
+        icon: '🔄',
+        title: 'Rendimiento por fase',
+        text: `Rindes un ${diff} puntos mejor en fase ${best[0]} (media ${best[1].avg}) que en ${worst[0]} (media ${worst[1].avg}).`,
+        detail: sorted.map(([p,d])=>`${p}: ${d.avg} pts (${d.n} entrenos)`).join(' · ')
+      });
+    }
+  }
+
+  // ── 2. Sleep vs score ──
+  const sleepData = sessions.filter(s=>s.sleep!=null&&s.sleep>0).map(s=>({ sleep:s.sleep, score: calcScores(s).absolute })).filter(d=>d.score!=null);
+  if (sleepData.length >= 6) {
+    const lowSleep  = sleepData.filter(d=>d.sleep<=2).map(d=>d.score);
+    const highSleep = sleepData.filter(d=>d.sleep>=4).map(d=>d.score);
+    if (lowSleep.length >= 2 && highSleep.length >= 2) {
+      const diff = Math.round(mean(highSleep) - mean(lowSleep));
+      if (Math.abs(diff) >= 5) {
+        insights.push({
+          type: 'sleep',
+          icon: '😴',
+          title: 'Sueño y rendimiento',
+          text: `Con sueño ≥4 tu puntuación media es ${diff} puntos más alta que con sueño ≤2.`,
+          detail: `Sueño bajo (≤2): media ${Math.round(mean(lowSleep))} · Sueño alto (≥4): media ${Math.round(mean(highSleep))}`
+        });
+      }
+    }
+  }
+
+  // ── 3. Stress vs score ──
+  const stressData = sessions.filter(s=>s.stress!=null&&s.stress>0).map(s=>({ stress:s.stress, score: calcScores(s).absolute })).filter(d=>d.score!=null);
+  if (stressData.length >= 6) {
+    const highStress = stressData.filter(d=>d.stress>=4).map(d=>d.score);
+    const lowStress  = stressData.filter(d=>d.stress<=2).map(d=>d.score);
+    if (highStress.length >= 2 && lowStress.length >= 2) {
+      const diff = Math.round(mean(lowStress) - mean(highStress));
+      if (diff >= 5) {
+        insights.push({
+          type: 'stress',
+          icon: '⚡',
+          title: 'Estrés y rendimiento',
+          text: `Con estrés alto (≥4) tu puntuación baja de media ${diff} puntos respecto a días de bajo estrés.`,
+          detail: `Estrés bajo (≤2): ${Math.round(mean(lowStress))} pts · Estrés alto (≥4): ${Math.round(mean(highStress))} pts`
+        });
+      }
+    }
+  }
+
+  // ── 4. Energy vs volume ──
+  const energyVol = sessions.filter(s=>s.energy!=null&&s.energy>0).map(s=>({ energy:s.energy, vol: calcSessionVolume(s) })).filter(d=>d.vol!=null&&d.vol>0);
+  if (energyVol.length >= 6) {
+    const lowE  = energyVol.filter(d=>d.energy<=2).map(d=>d.vol);
+    const highE = energyVol.filter(d=>d.energy>=4).map(d=>d.vol);
+    if (lowE.length >= 2 && highE.length >= 2) {
+      const pct = Math.round((mean(highE)-mean(lowE))/mean(lowE)*100);
+      if (pct >= 10) {
+        insights.push({
+          type: 'energy',
+          icon: '💪',
+          title: 'Energía y volumen',
+          text: `Con energía alta (≥4) haces un ${pct}% más de volumen (series×reps) que con energía baja.`,
+          detail: `Energía baja (≤2): ${Math.round(mean(lowE))} reps totales · Alta (≥4): ${Math.round(mean(highE))} reps totales`
+        });
+      }
+    }
+  }
+
+  // ── 5. Days since last session vs score ──
+  const sortedSess = [...sessions].sort((a,b)=>a.date.localeCompare(b.date));
+  const restData = [];
+  for (let i=1; i<sortedSess.length; i++) {
+    const days = Math.round((new Date(sortedSess[i].date)-new Date(sortedSess[i-1].date))/(1000*86400));
+    const score = calcScores(sortedSess[i]).absolute;
+    if (score != null && days >= 1 && days <= 7) restData.push({ days, score });
+  }
+  if (restData.length >= 6) {
+    const shortRest = restData.filter(d=>d.days===1).map(d=>d.score);
+    const longRest  = restData.filter(d=>d.days>=2).map(d=>d.score);
+    if (shortRest.length >= 3 && longRest.length >= 3) {
+      const diff = Math.round(mean(longRest)-mean(shortRest));
+      if (Math.abs(diff) >= 5) {
+        const better = diff > 0 ? 'con más descanso' : 'entrenando días consecutivos';
+        insights.push({
+          type: 'rest',
+          icon: '🔋',
+          title: 'Descanso entre sesiones',
+          text: `Rindes ${Math.abs(diff)} puntos mejor ${better}.`,
+          detail: `Descanso 1 día: ${Math.round(mean(shortRest))} pts · 2+ días: ${Math.round(mean(longRest))} pts`
+        });
+      }
+    }
+  }
+
+  // ── 6. Soreness vs next session score ──
+  const sorenessImpact = [];
+  for (let i=0; i<sortedSess.length-1; i++) {
+    if (sortedSess[i].soreness != null && sortedSess[i].soreness > 0) {
+      const nextScore = calcScores(sortedSess[i+1]).absolute;
+      if (nextScore != null) sorenessImpact.push({ soreness: sortedSess[i].soreness, nextScore });
+    }
+  }
+  if (sorenessImpact.length >= 6) {
+    const highSore = sorenessImpact.filter(d=>d.soreness>=4).map(d=>d.nextScore);
+    const lowSore  = sorenessImpact.filter(d=>d.soreness<=2).map(d=>d.nextScore);
+    if (highSore.length >= 2 && lowSore.length >= 2) {
+      const diff = Math.round(mean(lowSore)-mean(highSore));
+      if (diff >= 5) {
+        insights.push({
+          type: 'soreness',
+          icon: '🤕',
+          title: 'Agujetas y siguiente sesión',
+          text: `Cuando tienes agujetas altas (≥4), la sesión siguiente puntúa ${diff} puntos menos de media.`,
+          detail: `Con agujetas bajas: ${Math.round(mean(lowSore))} pts · Con agujetas altas: ${Math.round(mean(highSore))} pts`
+        });
+      }
+    }
+  }
+
+  return insights;
+}
+
+// ── Smart reminder banner ──────────────────────
+function getSmartBanner() {
+  const sessions = DB.sessions.sort((a,b) => b.date.localeCompare(a.date));
+  const today = todayStr();
+  const todaySess = sessions.find(s => s.date === today);
+  if (todaySess) return null; // Already trained today
+
+  // Days since last session
+  const lastDate = sessions[0]?.date;
+  let daysSince = null;
+  if (lastDate) {
+    daysSince = Math.round((new Date(today) - new Date(lastDate)) / 86400000);
+  }
+
+  // Current cycle phase from last session
+  const lastCycle = sessions[0]?.cycle || null;
+  const phaseAdvice = {
+    'Ovulación': { msg: 'Estás en fase ovulatoria — tu mejor momento para intensidad alta.', color: 'var(--cycle-ovul)', textColor: '#286628' },
+    'Folicular': { msg: 'Fase folicular: energía en ascenso, buen momento para progresar en cargas.', color: 'var(--cycle-folic)', textColor: '#2a5f88' },
+    'Lútea': { msg: 'Fase lútea: escucha a tu cuerpo, ajusta la intensidad según cómo estés.', color: 'var(--cycle-lut)', textColor: '#6a3a88' },
+    'Menstruación': { msg: 'Fase menstrual: movilidad y ejercicio suave si te apetece.', color: 'var(--cycle-menst)', textColor: '#a03030' }
+  };
+
+  const banners = [];
+
+  if (daysSince !== null && daysSince >= 3) {
+    banners.push({
+      msg: `Llevas ${daysSince} día${daysSince>1?'s':''} sin registrar un entreno.`,
+      sub: 'Pulsa para registrar hoy.',
+      color: 'var(--accent-bg)', border: 'var(--accent)', textColor: 'var(--accent-dark)',
+      action: "navigate('log')"
+    });
+  }
+
+  if (lastCycle && phaseAdvice[lastCycle]) {
+    const pa = phaseAdvice[lastCycle];
+    banners.push({
+      msg: pa.msg, sub: null,
+      color: pa.color + '22', border: pa.color, textColor: pa.textColor,
+      action: "progressTab='cycle';navigate('progress')"
+    });
+  }
+
+  return banners.length > 0 ? banners : null;
 }
 
 // ═══════════════════════════════════════════════
@@ -691,10 +978,12 @@ function renderProgress() {
       <div class="chip ${progressTab==='general'?'sel':''}" onclick="progressTab='general';render();">General</div>
       <div class="chip ${progressTab==='exercise'?'sel':''}" onclick="progressTab='exercise';render();">Por ejercicio</div>
       <div class="chip ${progressTab==='cycle'?'sel':''}" onclick="progressTab='cycle';render();">Ciclo</div>
+      <div class="chip ${progressTab==='insights'?'sel':''}" onclick="progressTab='insights';render();">Insights</div>
     </div>
     ${progressTab==='general' ? renderProgressGeneral(sessions) : ''}
     ${progressTab==='exercise' ? renderProgressExercise(sessions) : ''}
     ${progressTab==='cycle' ? renderProgressCycle(sessions) : ''}
+    ${progressTab==='insights' ? renderProgressInsights(sessions) : ''}
   </div>`;
 }
 
@@ -905,7 +1194,16 @@ function renderProgressExercise(sessions) {
   const resistData = exSessions.filter(s=>s.exData.resist_used).map(s=>s.exData.resist_used);
   const maxKg = kgData.length ? Math.max(...kgData) : null;
 
+  // Check if this exercise is stagnated
+  const stagnList = getStagnatedExercises();
+  const isStagnated = stagnList.some(e => e.id === selectedExercise);
+
   return `
+  ${isStagnated ? `
+  <div class="card" style="margin-bottom:12px;border-color:var(--danger);background:var(--danger-bg);">
+    <div style="font-size:13px;font-weight:700;color:var(--danger);">⚠ Estancamiento detectado</div>
+    <div class="text-sm" style="color:var(--danger);margin-top:2px;">Sin progreso en las últimas ${getSettings().stagnation_sessions||5} sesiones.</div>
+  </div>` : ''}
   <button class="btn btn-sm" style="margin-bottom:16px;" onclick="selectedExercise=null;render();">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
     Volver
@@ -1065,6 +1363,82 @@ function renderProgressCycle(sessions) {
   }).join('')}`;
 }
 
+
+function renderProgressInsights(sessions) {
+  const insights = computeCorrelations();
+  const stagnated = getStagnatedExercises();
+
+  // Volume trend (last 12 sessions with volume data)
+  const volSessions = sessions.filter(s => calcSessionVolume(s) != null).slice(-12);
+  const loadSessions = sessions.filter(s => calcSessionLoad(s) != null).slice(-12);
+  const volData  = volSessions.map(s => calcSessionVolume(s));
+  const loadData = loadSessions.map(s => calcSessionLoad(s));
+  const maxVol  = volData.length  ? Math.max(...volData)  : 1;
+  const maxLoad = loadData.length ? Math.max(...loadData) : 1;
+
+  return `
+  <!-- STAGNATION -->
+  ${stagnated.length > 0 ? `
+  <div class="chart-container" style="margin-bottom:12px;">
+    <div class="chart-title" style="color:var(--danger);">⚠ Estancamiento detectado</div>
+    <p class="text-sm text-muted" style="margin-bottom:10px;">Sin progreso en las últimas ${getSettings().stagnation_sessions||5} sesiones.</p>
+    ${stagnated.map(ex => `
+      <div class="ex-item" style="cursor:pointer;" onclick="selectedExercise='${ex.id}';progressTab='exercise';render();">
+        <div class="flex-row" style="justify-content:space-between;">
+          <span class="ex-name" style="color:var(--danger);">${ex.name}</span>
+          <span class="text-sm text-muted">${ex.sessions} sesiones →</span>
+        </div>
+        <div class="text-sm text-muted mt-8">${[ex.lastKg?ex.lastKg+'kg':null, ex.lastResist?'resist '+ex.lastResist:null].filter(Boolean).join(' · ')||'Sin métricas numéricas'}</div>
+      </div>
+    `).join('')}
+  </div>` : `
+  <div class="card" style="margin-bottom:12px;border-color:var(--success);background:var(--success-bg);">
+    <div style="font-size:13px;font-weight:600;color:var(--success);">✓ Sin estancamientos detectados</div>
+  </div>`}
+
+  <!-- VOLUME TREND -->
+  ${volData.length > 1 ? `
+  <div class="chart-container" style="margin-bottom:12px;">
+    <div class="chart-title">Tendencia de volumen (series × reps)</div>
+    <div class="mini-chart" style="margin-bottom:8px;">
+      ${volData.map((v,i) => `<div class="bar" style="height:${Math.round((v/maxVol)*100)}%;background:var(--accent);"></div>`).join('')}
+    </div>
+    <div class="flex-row" style="justify-content:space-between;">
+      <span class="text-sm text-muted">${volData[0]} reps</span>
+      <span class="text-sm font-bold ${volData[volData.length-1]>volData[0]?'text-accent':''}">${volData[volData.length-1]>volData[0]?'↑':'→'} ${volData[volData.length-1]} reps</span>
+    </div>
+  </div>` : ''}
+
+  ${loadData.length > 1 ? `
+  <div class="chart-container" style="margin-bottom:12px;">
+    <div class="chart-title">Tendencia de carga total (series × reps × kg)</div>
+    <div class="mini-chart" style="margin-bottom:8px;">
+      ${loadData.map(v => `<div class="bar" style="height:${Math.round((v/maxLoad)*100)}%;background:var(--cycle-folic);"></div>`).join('')}
+    </div>
+    <div class="flex-row" style="justify-content:space-between;">
+      <span class="text-sm text-muted">${loadData[0]} kg·reps</span>
+      <span class="text-sm font-bold" style="color:var(--cycle-folic);">${loadData[loadData.length-1]>loadData[0]?'↑':'→'} ${loadData[loadData.length-1]} kg·reps</span>
+    </div>
+  </div>` : ''}
+
+  <!-- CORRELATIONS -->
+  <div class="section-title" style="margin-bottom:10px;">Correlaciones</div>
+  ${insights.length === 0 ? `
+  <div class="card">
+    <div class="text-sm text-muted">Necesitas al menos 6 sesiones con datos de bienestar para generar insights. Sigue registrando.</div>
+  </div>` :
+    insights.map(ins => `
+  <div class="chart-container" style="margin-bottom:10px;">
+    <div class="flex-row" style="margin-bottom:6px;">
+      <span style="font-size:18px;margin-right:8px;">${ins.icon}</span>
+      <span style="font-size:14px;font-weight:700;">${ins.title}</span>
+    </div>
+    <p class="text-sm" style="color:var(--text);margin-bottom:6px;line-height:1.5;">${ins.text}</p>
+    <p class="text-sm text-muted" style="line-height:1.4;">${ins.detail}</p>
+  </div>`).join('')
+  }`;
+}
+
 // ═══════════════════════════════════════════════
 // EXERCISES PAGE
 // ═══════════════════════════════════════════════
@@ -1127,6 +1501,17 @@ function openAddExercise() {
       <label>Material por defecto</label>
       <select id="new-ex-material">${materialOptions('')}</select>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:0.5px solid var(--border);margin-bottom:14px;">
+      <div>
+        <div style="font-size:14px;font-weight:600;">Recordatorio de estancamiento</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">Avisar si no hay progreso en N sesiones</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:26px;margin:0;">
+        <input type="checkbox" id="new-ex-stagnation" checked style="opacity:0;width:0;height:0;">
+        <span onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;this.style.background=this.previousElementSibling.checked?'var(--accent-dark)':'var(--border2)';" style="position:absolute;inset:0;border-radius:13px;background:var(--accent-dark);cursor:pointer;transition:background .2s;"></span>
+        <span id="new-ex-stag-knob" style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;pointer-events:none;"></span>
+      </label>
+    </div>
     <button class="btn btn-primary btn-full" onclick="saveNewExercise()">Guardar</button>
   `);
   setTimeout(() => document.getElementById('new-ex-name')?.focus(), 100);
@@ -1138,7 +1523,8 @@ function saveNewExercise() {
   const exercises = DB.exercises;
   if (exercises.find(e => e.name.toLowerCase() === name.toLowerCase())) { toast('Ya existe ese ejercicio'); return; }
   const material = document.getElementById('new-ex-material')?.value || '';
-  exercises.push({ id: uid(), name, defaultMaterial: material });
+  const trackStagnation = document.getElementById('new-ex-stagnation')?.checked !== false;
+  exercises.push({ id: uid(), name, defaultMaterial: material, trackStagnation });
   DB.exercises = exercises.sort((a, b) => a.name.localeCompare(b.name, 'es'));
   closeModal();
   render();
@@ -1159,6 +1545,17 @@ function openEditExercise(id) {
       <label>Material por defecto</label>
       <select id="edit-ex-material">${materialOptions(ex.defaultMaterial||'')}</select>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:0.5px solid var(--border);margin-bottom:14px;">
+      <div>
+        <div style="font-size:14px;font-weight:600;">Recordatorio de estancamiento</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">Avisar si no hay progreso en N sesiones</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:26px;margin:0;">
+        <input type="checkbox" id="edit-ex-stagnation" ${ex.trackStagnation!==false?'checked':''} style="opacity:0;width:0;height:0;">
+        <span onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;this.style.background=this.previousElementSibling.checked?'var(--accent-dark)':'var(--border2)';" style="position:absolute;inset:0;border-radius:13px;background:${ex.trackStagnation!==false?'var(--accent-dark)':'var(--border2)'};cursor:pointer;transition:background .2s;"></span>
+        <span style="position:absolute;left:${ex.trackStagnation!==false?'21':'3'}px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;pointer-events:none;"></span>
+      </label>
+    </div>
     <button class="btn btn-primary btn-full" onclick="saveEditExercise('${id}')">Guardar</button>
     <button class="btn btn-full mt-8" onclick="closeModal()">Cancelar</button>
   `);
@@ -1168,9 +1565,10 @@ function saveEditExercise(id) {
   const name = document.getElementById('edit-ex-name')?.value.trim();
   if (!name) return;
   const material = document.getElementById('edit-ex-material')?.value || '';
+  const trackStagnation = document.getElementById('edit-ex-stagnation')?.checked !== false;
   const exercises = DB.exercises;
   const idx = exercises.findIndex(e => e.id === id);
-  if (idx >= 0) { exercises[idx].name = name; exercises[idx].defaultMaterial = material; }
+  if (idx >= 0) { exercises[idx].name = name; exercises[idx].defaultMaterial = material; exercises[idx].trackStagnation = trackStagnation; }
   DB.exercises = exercises.sort((a, b) => a.name.localeCompare(b.name, 'es'));
   closeModal();
   render();
@@ -1178,11 +1576,7 @@ function saveEditExercise(id) {
 }
 
 function deleteExercise(id) {
-  if (!confirm('¿Eliminar este ejercicio?')) return;
-  const exercises = DB.exercises.filter(e => e.id !== id);
-  DB.exercises = exercises;
-  render();
-  toast('Ejercicio eliminado');
+  confirmModal('¿Eliminar este ejercicio?', () => { DB.exercises = DB.exercises.filter(e => e.id !== id); render(); toast('Ejercicio eliminado'); }, 'Eliminar', true);
 }
 
 // ═══════════════════════════════════════════════
@@ -1201,6 +1595,10 @@ function showSessionDetail(id) {
         <div style="margin-top:4px;">${cycleTag(session.cycle)}</div>
       </div>
       <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm" onclick="copySessionText('${id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copiar
+        </button>
         <button class="btn btn-sm" onclick="editSession('${id}')">Editar</button>
         <button class="btn btn-sm btn-danger" onclick="deleteSession('${id}')">Borrar</button>
       </div>
@@ -1250,6 +1648,49 @@ function showSessionDetail(id) {
   `);
 }
 
+function copySessionText(id) {
+  const session = DB.sessions.find(s => s.id === id);
+  if (!session) return;
+
+  const lines = [];
+
+  // Bienestar
+  if (session.energy  != null) lines.push(`🔋Energía (1-5): ${session.energy}`);
+  if (session.stress  != null) lines.push(`🧘‍♀️Estrés (1-5): ${session.stress}`);
+  if (session.sleep   != null) lines.push(`💤Sueño (1-5): ${session.sleep}`);
+  if (session.motivation != null) lines.push(`💪Motivación (1-5): ${session.motivation}`);
+  if (session.soreness   != null) lines.push(`🤕Agujetas (1-5): ${session.soreness}`);
+
+  // Exercises
+  if (session.exercises?.length > 0) {
+    lines.push('');
+    session.exercises.forEach(ex => {
+      // Build load string
+      const load = [
+        ex.kg ? (ex.material === 'Mancuerna' ? ex.kg + 'kg/m' : ex.kg + 'kg') : null,
+        ex.resist_used && ex.resist_max ? ex.resist_used + '/' + ex.resist_max : null,
+      ].filter(Boolean).join(', ');
+
+      const loadPart = load ? ` (${load})` : '';
+      const notesPart = ex.notes ? `: ${ex.notes}` : '';
+      lines.push(`- ${ex.name}${loadPart}${notesPart}`);
+    });
+  }
+
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => toast('Copiado al portapapeles ✓'))
+    .catch(() => {
+      // Fallback for older Safari
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('Copiado ✓');
+    });
+}
+
 function editSession(id) {
   const session = DB.sessions.find(s => s.id === id);
   if (!session) return;
@@ -1259,12 +1700,7 @@ function editSession(id) {
 }
 
 function deleteSession(id) {
-  if (!confirm('¿Eliminar este entreno?')) return;
-  DB.sessions = DB.sessions.filter(s => s.id !== id);
-  closeModal();
-  render();
-  toast('Entreno eliminado');
-  GD.push();
+  confirmModal('¿Eliminar este entreno?', () => { DB.sessions = DB.sessions.filter(s => s.id !== id); closeModal(); render(); toast('Entreno eliminado'); GD.push(); }, 'Eliminar', true);
 }
 
 function showAllSessions() {
@@ -1286,6 +1722,552 @@ function showAllSessions() {
   `);
 }
 
+
+// ═══════════════════════════════════════════════
+// LIVE WORKOUT
+// ═══════════════════════════════════════════════
+let liveState = null; // setup phase
+let liveSession = null; // active workout
+
+function startLiveSetup() {
+  liveState = {
+    date: todayStr(),
+    cycle: '', sleep: null, energy: null, stress: null, motivation: null, soreness: null,
+    blocks: [] // [{id, type:'individual'|'superserie'|'ronda', name, rounds, exercises:[{exId,name,reps,timeSeconds,material,kg,resist_used,resist_max}]}]
+  };
+  navigate('live');
+}
+
+function renderLive() {
+  // If active session, show execution view
+  if (liveSession) return renderLiveExecution();
+  if (!liveState) { navigate('home'); return ''; }
+  return renderLiveSetup();
+}
+
+// ── SETUP ─────────────────────────────────────
+function renderLiveSetup() {
+  const s = liveState;
+  return `
+  <div class="page-header" style="display:flex;align-items:center;gap:12px;padding-bottom:8px;">
+    <button class="btn btn-icon" onclick="navigate('home')" style="flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 style="font-size:22px;">Entreno en vivo</h1>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Fase del ciclo</div>
+    <div class="chip-group">
+      ${['Menstruación','Folicular','Ovulación','Lútea'].map(p=>`
+        <div class="chip ${s.cycle===p?'sel':''}" onclick="liveState.cycle='${p}';render();">${p}</div>
+      `).join('')}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Estado del día</div>
+    <div class="card" style="gap:14px;display:flex;flex-direction:column;">
+      ${renderLiveRatingRow('Calidad de sueño','sleep')}
+      ${renderLiveRatingRow('Energía','energy')}
+      ${renderLiveRatingRow('Estrés','stress')}
+      ${renderLiveRatingRow('Motivación','motivation')}
+      ${renderLiveRatingRow('Dolor muscular / agujetas','soreness')}
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Bloques</div>
+    ${s.blocks.map((b,bi) => renderLiveBlockSetup(b, bi)).join('')}
+    <button class="btn btn-full mt-8" onclick="openAddBlockModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Añadir bloque
+    </button>
+  </div>
+
+  ${s.blocks.length > 0 ? `
+  <div class="section">
+    <button class="btn btn-primary btn-full" style="padding:14px;font-size:16px;" onclick="startLiveExecution()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Empezar entreno
+    </button>
+  </div>` : ''}`;
+}
+
+function renderLiveRatingRow(label, key) {
+  return `
+  <div>
+    <label style="margin-bottom:8px;">${label}</label>
+    <div class="rating-group">
+      ${[1,2,3,4,5].map(v=>`
+        <div class="rating-btn ${liveState[key]===v?'sel':''}" onclick="liveState['${key}']=${v};render();">${v}</div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function renderLiveBlockSetup(block, bi) {
+  const typeLabel = { individual:'Individual', superserie:'Superserie', ronda:'Ronda' }[block.type];
+  return `
+  <div class="card" style="margin-bottom:10px;">
+    <div class="flex-row" style="justify-content:space-between;margin-bottom:10px;">
+      <div>
+        <div style="font-size:13px;font-weight:700;">${block.name||typeLabel}</div>
+        <div class="text-sm text-muted">${typeLabel} · ${block.rounds} ronda${block.rounds>1?'s':''}</div>
+      </div>
+      <div class="flex-row" style="gap:6px;">
+        <button class="btn btn-icon btn-sm" onclick="openEditBlockModal(${bi})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-icon btn-sm btn-danger" onclick="liveState.blocks.splice(${bi},1);render();">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+    ${block.exercises.map(ex=>`
+      <div class="flex-row" style="padding:6px 0;border-top:0.5px solid var(--border);gap:8px;">
+        <div style="flex:1;font-size:13px;">${ex.name}</div>
+        <div class="text-sm text-muted">${ex.timeSeconds ? ex.timeSeconds+'s' : ex.reps||''}</div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+// ── Block modal ────────────────────────────────
+function openAddBlockModal() {
+  const block = { id: uid(), type: 'individual', name: '', rounds: 3, exercises: [] };
+  openBlockModal(block, -1);
+}
+function openEditBlockModal(bi) {
+  openBlockModal(JSON.parse(JSON.stringify(liveState.blocks[bi])), bi);
+}
+
+function openBlockModal(block, bi) {
+  window._editBlock = block;
+  function modalHtml() {
+    const exercises = DB.exercises;
+    const typeLabel = { individual:'Individual', superserie:'Superserie', ronda:'Ronda' };
+    return `
+    <div class="modal-handle"></div>
+    <div class="modal-title">${bi === -1 ? 'Nuevo bloque' : 'Editar bloque'}</div>
+    <div class="form-group">
+      <label>Tipo de bloque</label>
+      <div class="chip-group" style="margin-bottom:0;">
+        ${['individual','superserie','ronda'].map(t=>`
+          <div class="chip ${block.type===t?'sel':''}" onclick="_editBlock.type='${t}';_rebuildBlockModal(${bi});">${typeLabel[t]}</div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Nombre del bloque (opcional)</label>
+      <input type="text" id="block-name" value="${block.name||''}" placeholder="ej. Bloque de glúteo" onchange="_editBlock.name=this.value;">
+    </div>
+    <div class="form-group">
+      <label>${block.type==='individual'?'Series':'Rondas'}</label>
+      <input type="number" id="block-rounds" min="1" max="20" value="${block.rounds}" onchange="_editBlock.rounds=+this.value;">
+    </div>
+    <div class="section-title" style="margin-bottom:8px;">Ejercicios</div>
+    ${block.exercises.map((ex,ei)=>`
+      <div class="ex-item" style="margin-bottom:8px;">
+        <div class="flex-row" style="justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:14px;font-weight:600;">${ex.name}</span>
+          <button class="btn btn-icon btn-sm btn-danger" onclick="_editBlock.exercises.splice(${ei},1);_rebuildBlockModal(${bi});">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label>Reps / descripción</label>
+            <input type="text" value="${ex.reps||''}" placeholder="ej. 12 o 10/lado" onchange="_editBlock.exercises[${ei}].reps=this.value;">
+          </div>
+          <div>
+            <label>Tiempo (segundos)</label>
+            <input type="number" min="0" value="${ex.timeSeconds||''}" placeholder="ej. 30" onchange="_editBlock.exercises[${ei}].timeSeconds=+this.value||null;">
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <label>Material</label>
+          <select onchange="_editBlock.exercises[${ei}].material=this.value;">
+            ${['','Peso corporal','Mancuerna','Barra','Kettlebell','Goma','Miniband','Banda con asas'].map(m=>`<option value="${m}" ${ex.material===m?'selected':''}>${m||'Sin material'}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    `).join('')}
+    <button class="btn btn-full mt-8" onclick="openExPickerForBlock(${bi})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Añadir ejercicio al bloque
+    </button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+    <button class="btn btn-primary btn-full" onclick="saveBlock(${bi})">Guardar bloque</button>
+    <button class="btn btn-full mt-8" onclick="closeModal()">Cancelar</button>`;
+  }
+  window._rebuildBlockModal = function(bIdx) { document.getElementById('modal-content').innerHTML = modalHtml(); };
+  openModal(modalHtml());
+}
+
+function openExPickerForBlock(bi) {
+  const exercises = DB.exercises;
+  let search = '';
+  function pickerHtml() {
+    const filtered = exercises.filter(e => e.name.toLowerCase().includes(search.toLowerCase()));
+    return `
+    <div class="modal-handle"></div>
+    <div class="modal-title">Añadir ejercicio</div>
+    <div class="search-input" style="margin-bottom:12px;">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="block-ex-search" placeholder="Buscar..." value="${search}" oninput="search=this.value;document.getElementById('modal-content').innerHTML=pickerHtml();">
+    </div>
+    ${filtered.map(e=>`
+      <div class="ex-select-item" onclick="addExToBlock('${e.id}','${e.name.replace(/'/g,"\\'")}','${e.defaultMaterial||''}',${bi});">
+        <span style="font-size:15px;">${e.name}</span>
+      </div>
+    `).join('')}`;
+  }
+  window.pickerHtml = pickerHtml;
+  openModal(pickerHtml());
+}
+
+function addExToBlock(exId, exName, defaultMaterial, bi) {
+  window._editBlock.exercises.push({ exId, name: exName, reps: '', timeSeconds: null, material: defaultMaterial||'' });
+  window._rebuildBlockModal(bi);
+}
+
+function saveBlock(bi) {
+  if (window._editBlock.exercises.length === 0) { toast('Añade al menos un ejercicio'); return; }
+  if (bi === -1) liveState.blocks.push(window._editBlock);
+  else liveState.blocks[bi] = window._editBlock;
+  closeModal();
+  render();
+}
+
+// ── EXECUTION ─────────────────────────────────
+function startLiveExecution() {
+  if (!liveState.cycle) { toast('Selecciona la fase del ciclo'); return; }
+  liveSession = {
+    startTime: Date.now(),
+    blockIndex: 0,
+    roundIndex: 0, // current round (0-based)
+    exIndex: 0,    // for individual: current exercise series index (same as round)
+    // per-exercise results: { exId+blockIdx: {rpe, notes, kg, resist_used, resist_max} }
+    results: {},
+    // completed blocks
+    done: false
+  };
+  render();
+}
+
+function renderLiveExecution() {
+  if (liveSession.done) return renderLiveFinish();
+  const blocks = liveState.blocks;
+  const bi = liveSession.blockIndex;
+  if (bi >= blocks.length) { liveSession.done = true; return renderLiveFinish(); }
+  const block = blocks[bi];
+  const totalRounds = block.rounds;
+  const currentRound = liveSession.roundIndex; // 0-based
+
+  const elapsed = Math.floor((Date.now() - liveSession.startTime) / 1000);
+  const elapsedMin = Math.floor(elapsed/60);
+  const elapsedSec = String(elapsed%60).padStart(2,'0');
+
+  return `
+  <div style="background:var(--accent-dark);color:white;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;">Bloque ${bi+1} de ${blocks.length}</div>
+      <div style="font-size:16px;font-weight:700;margin-top:2px;">${block.name || ({ individual:'Individual', superserie:'Superserie', ronda:'Ronda' }[block.type])}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:11px;opacity:.7;">Tiempo</div>
+      <div style="font-size:18px;font-weight:700;" id="live-timer-display">${elapsedMin}:${elapsedSec}</div>
+    </div>
+  </div>
+
+  <div style="padding:16px;">
+    <!-- Round progress -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;">
+      ${Array.from({length:totalRounds},(_,i)=>`
+        <div style="flex:1;height:6px;border-radius:3px;background:${i<currentRound?'var(--accent-dark)':i===currentRound?'var(--accent)':'var(--border)'};"></div>
+      `).join('')}
+    </div>
+    <div class="text-sm text-muted" style="margin-bottom:16px;text-align:center;">
+      ${block.type==='individual' ? `Serie ${currentRound+1} de ${totalRounds}` : `Ronda ${currentRound+1} de ${totalRounds}`}
+    </div>
+
+    <!-- Exercises in this block -->
+    ${block.exercises.map((ex, ei) => {
+      const resultKey = `${bi}_${ei}`;
+      const res = liveSession.results[resultKey] || {};
+      return `
+      <div class="card" style="margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px;">${ex.name}</div>
+        <div class="text-sm text-muted" style="margin-bottom:10px;">${ex.timeSeconds ? ex.timeSeconds+'s' : ex.reps||''} ${ex.material?'· '+ex.material:''}</div>
+        ${ex.timeSeconds ? `
+        <button class="btn btn-full" onclick="startExTimer(${ex.timeSeconds})" style="margin-bottom:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Iniciar timer (${ex.timeSeconds}s)
+        </button>` : ''}
+      </div>`;
+    }).join('')}
+
+    <!-- Action buttons -->
+    <button class="btn btn-primary btn-full" style="padding:14px;font-size:15px;margin-bottom:10px;" onclick="completeRound(${bi}, ${currentRound})">
+      ✓ ${block.type==='individual' ? 'Serie completada' : 'Ronda completada'}
+    </button>
+    ${bi > 0 || currentRound > 0 ? `
+    <button class="btn btn-full btn-sm" style="color:var(--text3);" onclick="finishWorkout()">Finalizar entreno</button>` : ''}
+  </div>`;
+}
+
+// Elapsed timer update
+setInterval(() => {
+  if (!liveSession || liveSession.done) return;
+  const elapsed = Math.floor((Date.now() - liveSession.startTime) / 1000);
+  const el = document.getElementById('live-timer-display');
+  if (el) el.textContent = Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0');
+}, 1000);
+
+// ── Timer ─────────────────────────────────────
+let _timerInterval = null;
+function startExTimer(seconds) {
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+  // 10s prep
+  let prep = 10;
+  openModal(`
+    <div class="modal-handle"></div>
+    <div style="text-align:center;padding:20px 0;">
+      <div style="font-size:14px;color:var(--text2);margin-bottom:8px;">Preparación</div>
+      <div id="timer-count" style="font-size:72px;font-weight:700;color:var(--accent-dark);line-height:1;">${prep}</div>
+      <div style="font-size:14px;color:var(--text3);margin-top:8px;">segundos</div>
+    </div>
+    <button class="btn btn-full" onclick="cancelTimer()">Cancelar</button>
+  `);
+  const beep = (freq, dur) => {
+    try {
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq; o.type = 'sine';
+      g.gain.setValueAtTime(0.3, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      o.start(ctx.currentTime); o.stop(ctx.currentTime + dur);
+    } catch(e) {}
+  };
+  _timerInterval = setInterval(() => {
+    prep--;
+    const el = document.getElementById('timer-count');
+    if (!el) { clearInterval(_timerInterval); return; }
+    if (prep <= 0) {
+      clearInterval(_timerInterval);
+      // Switch to exercise timer
+      let remaining = seconds;
+      el.textContent = remaining;
+      el.previousElementSibling.textContent = 'Ejercicio';
+      el.style.color = 'var(--success)';
+      _timerInterval = setInterval(() => {
+        remaining--;
+        const el2 = document.getElementById('timer-count');
+        if (!el2) { clearInterval(_timerInterval); return; }
+        el2.textContent = remaining;
+        if (remaining <= 3 && remaining > 0) beep(880, 0.15);
+        if (remaining <= 0) {
+          clearInterval(_timerInterval);
+          beep(660, 0.4);
+          setTimeout(() => beep(880, 0.4), 450);
+          el2.textContent = '¡Listo!';
+          el2.style.color = 'var(--accent-dark)';
+        }
+      }, 1000);
+    } else {
+      el.textContent = prep;
+      if (prep <= 3) beep(440, 0.1);
+    }
+  }, 1000);
+}
+
+function cancelTimer() {
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+  closeModal();
+}
+
+// ── Complete round / series ────────────────────
+function completeRound(bi, roundIdx) {
+  const block = liveState.blocks[bi];
+  const isLastRound = roundIdx >= block.rounds - 1;
+
+  if (isLastRound) {
+    // Show post-block modal for RPE, notes, load per exercise
+    showPostBlockModal(bi);
+  } else {
+    liveSession.roundIndex++;
+    render();
+  }
+}
+
+function showPostBlockModal(bi) {
+  const block = liveState.blocks[bi];
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Bloque completado ✓</div>
+    <p class="text-sm text-muted" style="margin-bottom:16px;">Añade detalles opcionales para cada ejercicio.</p>
+    ${block.exercises.map((ex, ei) => {
+      const resultKey = `${bi}_${ei}`;
+      const res = liveSession.results[resultKey] || {};
+      const mat = ex.material || '';
+      const needsKg = ['Mancuerna','Barra','Kettlebell'].includes(mat);
+      const needsResist = ['Goma','Miniband'].includes(mat);
+      return `
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:0.5px solid var(--border);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">${ex.name}</div>
+        ${needsKg ? `
+        <div class="form-group">
+          <label>${mat==='Mancuerna'?'Kg por mancuerna':'Kg totales'}</label>
+          <input type="number" min="0" step="0.5" value="${res.kg||''}" placeholder="ej. 10" id="res-kg-${bi}-${ei}" onchange="setResult('${bi}_${ei}','kg',+this.value||null);">
+        </div>` : ''}
+        ${needsResist ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group">
+            <label>Resist. usada</label>
+            <input type="number" min="1" value="${res.resist_used||''}" id="res-ru-${bi}-${ei}" onchange="setResult('${bi}_${ei}','resist_used',+this.value||null);">
+          </div>
+          <div class="form-group">
+            <label>Resist. máx</label>
+            <input type="number" min="1" value="${res.resist_max||''}" id="res-rm-${bi}-${ei}" onchange="setResult('${bi}_${ei}','resist_max',+this.value||null);">
+          </div>
+        </div>` : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="form-group">
+            <label>RPE (1-10)</label>
+            <input type="number" min="1" max="10" value="${res.rpe||''}" placeholder="7" id="res-rpe-${bi}-${ei}" onchange="setResult('${bi}_${ei}','rpe',+this.value||null);">
+          </div>
+          <div></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Comentarios</label>
+          <input type="text" value="${res.notes||''}" placeholder="Notas del ejercicio" id="res-notes-${bi}-${ei}" onchange="setResult('${bi}_${ei}','notes',this.value);">
+        </div>
+      </div>`;
+    }).join('')}
+    <button class="btn btn-primary btn-full" onclick="advanceBlock(${bi})">
+      ${bi < liveState.blocks.length - 1 ? 'Siguiente bloque →' : 'Finalizar entreno'}
+    </button>
+    <button class="btn btn-full mt-8" onclick="closeModal();liveSession.blocks&&liveSession.blocks.push&&null;liveSession.roundIndex++;render();">
+      + Añadir serie extra antes
+    </button>
+  `);
+}
+
+function setResult(key, field, val) {
+  if (!liveSession.results[key]) liveSession.results[key] = {};
+  liveSession.results[key][field] = val;
+}
+
+function advanceBlock(bi) {
+  closeModal();
+  liveSession.blockIndex++;
+  liveSession.roundIndex = 0;
+  if (liveSession.blockIndex >= liveState.blocks.length) {
+    liveSession.done = true;
+  }
+  render();
+}
+
+function finishWorkout() {
+  confirmModal('¿Finalizar el entreno?', () => { liveSession.done = true; render(); }, 'Finalizar');
+}
+
+// ── FINISH SCREEN ─────────────────────────────
+function renderLiveFinish() {
+  const elapsed = Math.round((Date.now() - liveSession.startTime) / 60000);
+  return `
+  <div class="page-header">
+    <h1>¡Entreno completado! 🎉</h1>
+  </div>
+  <div class="section">
+    <div class="card" style="border-color:var(--success);background:var(--success-bg);text-align:center;padding:20px;margin-bottom:16px;">
+      <div style="font-size:36px;font-weight:700;color:var(--success);">${elapsed}<span style="font-size:16px;font-weight:400;">min</span></div>
+      <div class="text-sm text-muted">duración</div>
+    </div>
+    <div class="form-group">
+      <label>Duración (min) — editable</label>
+      <input type="number" id="live-duration" value="${elapsed}" min="1" max="300">
+    </div>
+    <div class="form-group">
+      <label>Kcal consumidas</label>
+      <input type="number" id="live-kcal" placeholder="ej. 250" min="0" max="9999">
+    </div>
+    <div class="form-group">
+      <label>Notas del entreno</label>
+      <textarea id="live-notes" placeholder="Observaciones generales..." style="min-height:80px;"></textarea>
+    </div>
+    <button class="btn btn-primary btn-full" style="padding:14px;font-size:16px;" onclick="transferLiveToLog()">
+      Revisar y guardar →
+    </button>
+    <button class="btn btn-full mt-8" style="color:var(--text3);" onclick="discardLive()">Descartar</button>
+  </div>`;
+}
+
+function transferLiveToLog() {
+  const duration = +document.getElementById('live-duration').value || null;
+  const kcal = +document.getElementById('live-kcal').value || null;
+  const notes = document.getElementById('live-notes').value || '';
+
+  // Build exercises array from blocks + results
+  const exercises = [];
+  liveState.blocks.forEach((block, bi) => {
+    block.exercises.forEach((ex, ei) => {
+      const key = `${bi}_${ei}`;
+      const res = liveSession.results[key] || {};
+      // Find exercise id from DB
+      const dbEx = DB.exercises.find(e => e.name === ex.name || e.id === ex.exId);
+      exercises.push({
+        id: dbEx?.id || ex.exId || uid(),
+        name: ex.name,
+        sets: block.rounds,
+        reps: ex.reps || (ex.timeSeconds ? ex.timeSeconds+'s' : ''),
+        material: ex.material || '',
+        kg: res.kg || null,
+        resist_used: res.resist_used || null,
+        resist_max: res.resist_max || null,
+        rpe: res.rpe || null,
+        notes: res.notes || ''
+      });
+    });
+  });
+
+  // Pre-fill logState
+  resetLogState();
+  logState.date = liveState.date;
+  logState.cycle = liveState.cycle;
+  logState.sleep = liveState.sleep;
+  logState.energy = liveState.energy;
+  logState.stress = liveState.stress;
+  logState.motivation = liveState.motivation;
+  logState.soreness = liveState.soreness;
+  logState.duration = duration;
+  logState.kcal = kcal;
+  logState.notes = notes;
+  logState.exercises = exercises;
+
+  // Reset live state
+  liveState = null;
+  liveSession = null;
+
+  navigate('log');
+  toast('Datos del entreno pre-rellenados ✓');
+}
+
+function discardLive() {
+  confirmModal('¿Descartar el entreno? Se perderán todos los datos.', () => { liveState = null; liveSession = null; navigate('home'); }, 'Descartar', true);
+}
+
+
+function confirmModal(msg, onConfirm, confirmLabel='Confirmar', danger=false) {
+  openModal(`
+    <div class="modal-handle"></div>
+    <p style="font-size:15px;color:var(--text);margin-bottom:20px;line-height:1.5;">${msg}</p>
+    <button class="btn ${danger?'btn-danger':''} btn-full" onclick="closeModal();(${onConfirm.toString()})();">${confirmLabel}</button>
+    <button class="btn btn-full mt-8" onclick="closeModal()">Cancelar</button>
+  `);
+}
 // ═══════════════════════════════════════════════
 // MODAL SYSTEM
 // ═══════════════════════════════════════════════
@@ -1330,7 +2312,8 @@ function attachListeners() {
 function getSettings() {
   return JSON.parse(localStorage.getItem('settings') || JSON.stringify({
     resist_max: { Goma: 3, Miniband: 5 },
-    score_weights: { sleep: 1.5, energy: 2.0, stress: 1.5, motivation: 1.5, soreness: 1.0, rpe: 2.0 }
+    score_weights: { sleep: 1.5, energy: 2.0, stress: 1.5, motivation: 1.5, soreness: 1.0, rpe: 2.0 },
+    stagnation_sessions: 5
   }));
 }
 function saveSettings(s) { localStorage.setItem('settings', JSON.stringify(s)); }
@@ -1341,6 +2324,16 @@ function renderSettings() {
   return `
   <div class="page-header">
     <h1>Ajustes</h1>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Detección de estancamiento</div>
+    <div class="card">
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Sesiones sin progreso para avisar</label>
+        <input type="number" min="2" max="20" id="stag-sessions" value="${s.stagnation_sessions||5}" onchange="updateStagnationThreshold(+this.value)">
+      </div>
+    </div>
   </div>
 
   <div class="section">
@@ -1403,6 +2396,14 @@ function renderSettings() {
     <div class="section-title" style="color:var(--danger);">Zona de peligro</div>
     <button class="btn btn-danger btn-full" onclick="confirmDeleteAll()">Borrar todos los datos</button>
   </div>`;
+}
+
+function updateStagnationThreshold(val) {
+  if (!val || val < 2) return;
+  const s = getSettings();
+  s.stagnation_sessions = val;
+  saveSettings(s);
+  toast('Guardado ✓');
 }
 
 function updateResist(type, val) {
@@ -1530,13 +2531,37 @@ const GD = {
     }
   },
 
+  // Offline queue
+  get pendingSync() { return localStorage.getItem('gd_pending') === '1'; },
+  set pendingSync(v) { localStorage.setItem('gd_pending', v ? '1' : '0'); },
+
   // Called after every saveSession / deleteSession / exercise change
   async push() {
-    if (!this.isConnected()) return;
+    if (!this.isConnected()) {
+      this.pendingSync = true;
+      setSyncState('off', 'Sin conexión — cambios guardados localmente');
+      return;
+    }
     setSyncState('syncing', 'Guardando en Drive...');
     const data = { version: 1, saved_at: new Date().toISOString(), sessions: DB.sessions, exercises: DB.exercises };
     const ok = await this.writeFile(data);
-    setSyncState(ok ? 'ok' : 'err', ok ? 'Sincronizado · ' + new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'}) : 'Error al guardar en Drive');
+    if (ok) {
+      this.pendingSync = false;
+      setSyncState('ok', 'Sincronizado · ' + new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'}));
+    } else {
+      this.pendingSync = true;
+      setSyncState('err', 'Error al guardar — reintentando al reconectar');
+    }
+  },
+
+  // Flush pending changes when connection is restored
+  async flushPending() {
+    if (!this.pendingSync) return;
+    if (!this.isConnected()) return;
+    setSyncState('syncing', 'Sincronizando cambios pendientes...');
+    const data = { version: 1, saved_at: new Date().toISOString(), sessions: DB.sessions, exercises: DB.exercises };
+    const ok = await this.writeFile(data);
+    if (ok) { this.pendingSync = false; setSyncState('ok', 'Cambios pendientes sincronizados ✓'); }
   },
 
   // Called on startup — checks Drive for newer data
@@ -1775,6 +2800,10 @@ if (GD.isConnected()) {
 } else {
   updateSyncBar();
 }
+// Flush pending sync when connection is restored
+window.addEventListener('online', () => { GD.flushPending(); });
+// Show pending indicator on load if needed
+if (GD.pendingSync) { setSyncState('err', 'Cambios pendientes de sincronizar'); }
 </script>
 </body>
 </html>
