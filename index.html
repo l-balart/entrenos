@@ -1484,6 +1484,16 @@ function renderExercises() {
   </div>`;
 }
 
+
+function toggleSwitch(checkboxId, bgSpanId, knobId) {
+  const cb = document.getElementById(checkboxId);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  const bg   = document.getElementById(bgSpanId);
+  const knob = document.getElementById(knobId);
+  if (bg)   bg.style.background   = cb.checked ? 'var(--accent-dark)' : 'var(--border2)';
+  if (knob) knob.style.transform  = cb.checked ? 'translateX(18px)' : 'translateX(0)';
+}
 const MATERIALS = ['','Peso corporal','Mancuerna','Barra','Kettlebell','Goma','Miniband','Banda con asas'];
 function materialOptions(sel) {
   return MATERIALS.map(m => `<option value="${m}" ${sel===m?'selected':''}>${m||'Sin material por defecto'}</option>`).join('');
@@ -1506,11 +1516,11 @@ function openAddExercise() {
         <div style="font-size:14px;font-weight:600;">Recordatorio de estancamiento</div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px;">Avisar si no hay progreso en N sesiones</div>
       </div>
-      <label style="position:relative;display:inline-block;width:44px;height:26px;margin:0;">
-        <input type="checkbox" id="new-ex-stagnation" checked style="opacity:0;width:0;height:0;">
-        <span onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;this.style.background=this.previousElementSibling.checked?'var(--accent-dark)':'var(--border2)';" style="position:absolute;inset:0;border-radius:13px;background:var(--accent-dark);cursor:pointer;transition:background .2s;"></span>
-        <span id="new-ex-stag-knob" style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;pointer-events:none;"></span>
-      </label>
+      <div onclick="toggleSwitch('new-ex-stagnation','new-ex-stag-bg','new-ex-stag-knob')" style="position:relative;display:inline-block;width:44px;height:26px;cursor:pointer;">
+        <input type="checkbox" id="new-ex-stagnation" checked style="opacity:0;width:0;height:0;position:absolute;">
+        <span id="new-ex-stag-bg" style="position:absolute;inset:0;border-radius:13px;background:var(--accent-dark);transition:background .2s;"></span>
+        <span id="new-ex-stag-knob" style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;transform:translateX(18px);"></span>
+      </div>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveNewExercise()">Guardar</button>
   `);
@@ -1550,11 +1560,11 @@ function openEditExercise(id) {
         <div style="font-size:14px;font-weight:600;">Recordatorio de estancamiento</div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px;">Avisar si no hay progreso en N sesiones</div>
       </div>
-      <label style="position:relative;display:inline-block;width:44px;height:26px;margin:0;">
-        <input type="checkbox" id="edit-ex-stagnation" ${ex.trackStagnation!==false?'checked':''} style="opacity:0;width:0;height:0;">
-        <span onclick="this.previousElementSibling.checked=!this.previousElementSibling.checked;this.style.background=this.previousElementSibling.checked?'var(--accent-dark)':'var(--border2)';" style="position:absolute;inset:0;border-radius:13px;background:${ex.trackStagnation!==false?'var(--accent-dark)':'var(--border2)'};cursor:pointer;transition:background .2s;"></span>
-        <span style="position:absolute;left:${ex.trackStagnation!==false?'21':'3'}px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;pointer-events:none;"></span>
-      </label>
+      <div onclick="toggleSwitch('edit-ex-stagnation','edit-ex-stag-bg','edit-ex-stag-knob')" style="position:relative;display:inline-block;width:44px;height:26px;cursor:pointer;">
+        <input type="checkbox" id="edit-ex-stagnation" ${ex.trackStagnation!==false?'checked':''} style="opacity:0;width:0;height:0;position:absolute;">
+        <span id="edit-ex-stag-bg" style="position:absolute;inset:0;border-radius:13px;background:${ex.trackStagnation!==false?'var(--accent-dark)':'var(--border2)'};transition:background .2s;"></span>
+        <span id="edit-ex-stag-knob" style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .2s;transform:${ex.trackStagnation!==false?'translateX(18px)':'translateX(0)'};"></span>
+      </div>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveEditExercise('${id}')">Guardar</button>
     <button class="btn btn-full mt-8" onclick="closeModal()">Cancelar</button>
