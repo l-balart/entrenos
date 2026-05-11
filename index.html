@@ -638,7 +638,7 @@ function openExercisePicker() {
       logState.exercises = logState.exercises.filter(e => e.id !== id);
     } else {
       selectedIds.add(id);
-      logState.exercises.push({ id: ex.id, name: ex.name, sets:null, reps:'', material:'', kg:null, resist_used:null, resist_max:null, rpe:null, notes:'' });
+      logState.exercises.push({ id: ex.id, name: ex.name, sets:null, reps:'', material: ex.defaultMaterial||'', kg:null, resist_used:null, resist_max:null, rpe:null, notes:'' });
     }
     updatePicker();
   };
@@ -977,13 +977,22 @@ function renderExercises() {
   </div>`;
 }
 
+const MATERIALS = ['','Peso corporal','Mancuerna','Barra','Kettlebell','Goma','Miniband','Banda con asas'];
+function materialOptions(sel) {
+  return MATERIALS.map(m => `<option value="${m}" ${sel===m?'selected':''}>${m||'Sin material por defecto'}</option>`).join('');
+}
+
 function openAddExercise() {
   openModal(`
     <div class="modal-handle"></div>
     <div class="modal-title">Nuevo ejercicio</div>
     <div class="form-group">
       <label>Nombre del ejercicio</label>
-      <input type="text" id="new-ex-name" placeholder="ej. Sentadilla búlgara" autofocus>
+      <input type="text" id="new-ex-name" placeholder="ej. Sentadilla búlgara">
+    </div>
+    <div class="form-group">
+      <label>Material por defecto</label>
+      <select id="new-ex-material">${materialOptions('')}</select>
     </div>
     <button class="btn btn-primary btn-full" onclick="saveNewExercise()">Guardar</button>
   `);
@@ -995,8 +1004,9 @@ function saveNewExercise() {
   if (!name) { toast('Introduce un nombre'); return; }
   const exercises = DB.exercises;
   if (exercises.find(e => e.name.toLowerCase() === name.toLowerCase())) { toast('Ya existe ese ejercicio'); return; }
-  exercises.push({ id: uid(), name });
-  DB.exercises = exercises;
+  const material = document.getElementById('new-ex-material')?.value || '';
+  exercises.push({ id: uid(), name, defaultMaterial: material });
+  DB.exercises = exercises.sort((a, b) => a.name.localeCompare(b.name, 'es'));
   closeModal();
   render();
   toast('Ejercicio añadido ✓');
@@ -1012,6 +1022,10 @@ function openEditExercise(id) {
       <label>Nombre</label>
       <input type="text" id="edit-ex-name" value="${ex.name}">
     </div>
+    <div class="form-group">
+      <label>Material por defecto</label>
+      <select id="edit-ex-material">${materialOptions(ex.defaultMaterial||'')}</select>
+    </div>
     <button class="btn btn-primary btn-full" onclick="saveEditExercise('${id}')">Guardar</button>
     <button class="btn btn-full mt-8" onclick="closeModal()">Cancelar</button>
   `);
@@ -1020,9 +1034,11 @@ function openEditExercise(id) {
 function saveEditExercise(id) {
   const name = document.getElementById('edit-ex-name')?.value.trim();
   if (!name) return;
+  const material = document.getElementById('edit-ex-material')?.value || '';
   const exercises = DB.exercises;
   const idx = exercises.findIndex(e => e.id === id);
-  if (idx >= 0) { exercises[idx].name = name; DB.exercises = exercises; }
+  if (idx >= 0) { exercises[idx].name = name; exercises[idx].defaultMaterial = material; }
+  DB.exercises = exercises.sort((a, b) => a.name.localeCompare(b.name, 'es'));
   closeModal();
   render();
   toast('Ejercicio actualizado ✓');
