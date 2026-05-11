@@ -151,6 +151,15 @@
   .score-bar-wrap { margin-top: 8px; background: var(--bg); border-radius: 4px; height: 6px; }
   .score-bar-fill { height: 6px; border-radius: 4px; background: var(--accent); }
 
+
+  /* DRIVE SYNC */
+  .sync-bar { display:flex; align-items:center; gap:8px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); font-size:12px; color:var(--text3); }
+  .sync-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .sync-dot.ok { background:var(--success); }
+  .sync-dot.err { background:var(--danger); }
+  .sync-dot.syncing { background:var(--accent); animation:pulse 1s infinite; }
+  .sync-dot.off { background:var(--border2); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
   .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .flex-row { display: flex; align-items: center; gap: 8px; }
   .flex-col { display: flex; flex-direction: column; gap: 8px; }
@@ -176,6 +185,7 @@
 </head>
 <body>
 <div id="app">
+  <div id="sync-bar" class="sync-bar hidden"><div class="sync-dot off" id="sync-dot"></div><span id="sync-msg">Google Drive desconectado</span><button id="sync-btn" style="margin-left:auto;background:none;border:none;font-size:12px;color:var(--accent-dark);cursor:pointer;padding:0;" onclick="handleSyncBtn()"></button></div>
   <div id="content"></div>
   <nav id="nav">
     <button class="nav-btn active" onclick="navigate('home')" id="nav-home">
@@ -652,6 +662,7 @@ function saveSession() {
   resetLogState();
   toast('Entreno guardado ✓');
   navigate('home');
+  GD.push();
 }
 
 function resetLog() {
@@ -1253,6 +1264,7 @@ function deleteSession(id) {
   closeModal();
   render();
   toast('Entreno eliminado');
+  GD.push();
 }
 
 function showAllSessions() {
@@ -1294,7 +1306,21 @@ function closeModalOnOverlay(e) {
 // EVENT LISTENERS
 // ═══════════════════════════════════════════════
 function attachListeners() {
-  // Nothing extra needed — all handlers are inline
+  // Update drive status in settings if visible
+  const driveSt = document.getElementById('settings-drive-status');
+  const driveBtn = document.getElementById('settings-drive-btn');
+  if (driveSt && driveBtn) {
+    if (GD.isConnected()) {
+      driveSt.textContent = 'Conectado — los datos se sincronizan automáticamente al guardar cada entreno.';
+      driveBtn.innerHTML = '<button class="btn btn-danger btn-full btn-sm" onclick="GD.logout();render();">Desconectar Google Drive</button>';
+    } else {
+      driveSt.textContent = 'No conectado. Al conectar, tus datos se guardarán automáticamente en un fichero en tu Google Drive.';
+      driveBtn.innerHTML = '<button class="btn btn-primary btn-full" onclick="GD.login();">Conectar con Google Drive</button>';
+    }
+  }
+  // Update sync bar button label
+  const btn = document.getElementById('sync-btn');
+  if (btn) btn.textContent = GD.isConnected() ? 'Desconectar' : 'Conectar';
 }
 
 
@@ -1348,6 +1374,14 @@ function renderSettings() {
       `).join('')}
     </div>
     <button class="btn btn-sm mt-8" style="color:var(--text3);" onclick="resetScoreWeights()">Restaurar valores por defecto</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Google Drive</div>
+    <div class="card" style="margin-bottom:0;">
+      <div id="settings-drive-status" style="font-size:13px;color:var(--text2);margin-bottom:12px;"></div>
+      <div id="settings-drive-btn"></div>
+    </div>
   </div>
 
   <div class="section">
@@ -1408,6 +1442,243 @@ function deleteAllData() {
   closeModal();
   toast('Datos eliminados');
   location.reload();
+}
+
+
+// ═══════════════════════════════════════════════
+// GOOGLE DRIVE SYNC
+// ═══════════════════════════════════════════════
+const GD = {
+  CLIENT_ID: '793984458574-f90mqhavg1kb3o9ui6gtmtqhoqhib9rq.apps.googleusercontent.com',
+  REDIRECT_URI: 'https://l-balart.github.io/entrenos/',
+  SCOPE: 'https://www.googleapis.com/auth/drive.file',
+  FILE_NAME: 'entrenos_data.json',
+
+  get token() { return localStorage.getItem('gd_token'); },
+  set token(v) { if(v) localStorage.setItem('gd_token', v); else localStorage.removeItem('gd_token'); },
+  get expiry() { return parseInt(localStorage.getItem('gd_expiry')||'0'); },
+  set expiry(v) { localStorage.setItem('gd_expiry', String(v)); },
+  get fileId() { return localStorage.getItem('gd_file_id'); },
+  set fileId(v) { if(v) localStorage.setItem('gd_file_id', v); else localStorage.removeItem('gd_file_id'); },
+
+  isConnected() { return !!this.token && Date.now() < this.expiry; },
+
+  login() {
+    const state = Math.random().toString(36).slice(2);
+    localStorage.setItem('gd_state', state);
+    const params = new URLSearchParams({
+      client_id: this.CLIENT_ID,
+      redirect_uri: this.REDIRECT_URI,
+      response_type: 'token',
+      scope: this.SCOPE,
+      state,
+      prompt: 'consent'
+    });
+    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+  },
+
+  logout() {
+    this.token = null; this.expiry = 0; this.fileId = null;
+    localStorage.removeItem('gd_state');
+    updateSyncBar();
+    toast('Desconectado de Google Drive');
+    render();
+  },
+
+  async findFile() {
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${this.FILE_NAME}'+and+trashed=false&fields=files(id,modifiedTime)`,
+      { headers: { Authorization: 'Bearer ' + this.token } }
+    );
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.files?.[0] || null;
+  },
+
+  async readFile(fileId) {
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: 'Bearer ' + this.token } }
+    );
+    if (!r.ok) return null;
+    return await r.json();
+  },
+
+  async writeFile(data) {
+    const body = JSON.stringify(data);
+    const fileId = this.fileId;
+    if (fileId) {
+      // Update existing
+      const r = await fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+        { method: 'PATCH', headers: { Authorization: 'Bearer ' + this.token, 'Content-Type': 'application/json' }, body }
+      );
+      return r.ok;
+    } else {
+      // Create new — two-step multipart
+      const meta = JSON.stringify({ name: this.FILE_NAME, mimeType: 'application/json' });
+      const boundary = 'entrenos_boundary';
+      const mp = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+      const r = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+        { method: 'POST', headers: { Authorization: 'Bearer ' + this.token, 'Content-Type': `multipart/related; boundary=${boundary}` }, body: mp }
+      );
+      if (!r.ok) return false;
+      const d = await r.json();
+      this.fileId = d.id;
+      return true;
+    }
+  },
+
+  // Called after every saveSession / deleteSession / exercise change
+  async push() {
+    if (!this.isConnected()) return;
+    setSyncState('syncing', 'Guardando en Drive...');
+    const data = { version: 1, saved_at: new Date().toISOString(), sessions: DB.sessions, exercises: DB.exercises };
+    const ok = await this.writeFile(data);
+    setSyncState(ok ? 'ok' : 'err', ok ? 'Sincronizado · ' + new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'}) : 'Error al guardar en Drive');
+  },
+
+  // Called on startup — checks Drive for newer data
+  async checkOnStartup() {
+    if (!this.isConnected()) { updateSyncBar(); return; }
+    setSyncState('syncing', 'Comprobando Drive...');
+    try {
+      const file = await this.findFile();
+      if (!file) {
+        // No file in Drive yet — push local data
+        this.fileId = null;
+        await this.push();
+        return;
+      }
+      this.fileId = file.id;
+      const driveData = await this.readFile(file.id);
+      if (!driveData) { setSyncState('err', 'No se pudo leer Drive'); return; }
+
+      const localSessions = DB.sessions;
+      const driveSessions = driveData.sessions || [];
+
+      if (localSessions.length === 0) {
+        // Nothing local — load Drive silently
+        DB.sessions = driveSessions;
+        DB.exercises = driveData.exercises || DB.exercises;
+        setSyncState('ok', 'Datos cargados de Drive');
+        render();
+        return;
+      }
+
+      // Compare last modified dates
+      const localLast = localSessions.map(s=>s.date).sort().pop() || '';
+      const driveLast = driveSessions.map(s=>s.date).sort().pop() || '';
+      const driveCount = driveSessions.length;
+      const localCount = localSessions.length;
+
+      if (localLast === driveLast && localCount === driveCount) {
+        setSyncState('ok', 'Sincronizado · Drive al día');
+        return;
+      }
+
+      // Ask user
+      showConflictModal(localLast, localCount, driveLast, driveCount, driveData);
+    } catch(e) {
+      setSyncState('err', 'Error de conexión con Drive');
+    }
+  }
+};
+
+function setSyncState(state, msg) {
+  const bar = document.getElementById('sync-bar');
+  const dot = document.getElementById('sync-dot');
+  const msgEl = document.getElementById('sync-msg');
+  if (!bar || !dot || !msgEl) return;
+  bar.classList.remove('hidden');
+  dot.className = 'sync-dot ' + state;
+  msgEl.textContent = msg;
+}
+
+function updateSyncBar() {
+  const btn = document.getElementById('sync-btn');
+  if (GD.isConnected()) {
+    setSyncState('ok', 'Google Drive conectado');
+    if (btn) btn.textContent = 'Desconectar';
+  } else {
+    setSyncState('off', 'Google Drive desconectado');
+    if (btn) btn.textContent = 'Conectar';
+  }
+}
+
+function handleSyncBtn() {
+  if (GD.isConnected()) GD.logout();
+  else GD.login();
+}
+
+function showConflictModal(localLast, localCount, driveLast, driveCount, driveData) {
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Conflicto de datos</div>
+    <p class="text-sm" style="color:var(--text2);margin-bottom:16px;">Hay diferencias entre los datos locales y los de Google Drive.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div class="score-card">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Este dispositivo</div>
+        <div style="font-size:22px;font-weight:700;">${localCount}</div>
+        <div class="text-sm text-muted">entrenos</div>
+        <div class="text-sm" style="margin-top:4px;color:var(--text2);">Último: ${localLast}</div>
+      </div>
+      <div class="score-card">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Google Drive</div>
+        <div style="font-size:22px;font-weight:700;">${driveCount}</div>
+        <div class="text-sm text-muted">entrenos</div>
+        <div class="text-sm" style="margin-top:4px;color:var(--text2);">Último: ${driveLast}</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-primary btn-full" onclick="resolveConflict('merge', ${JSON.stringify(driveData).replace(/"/g,'&quot;')})">
+        Fusionar (combinar ambos, sin duplicados)
+      </button>
+      <button class="btn btn-full" onclick="resolveConflict('drive', ${JSON.stringify(driveData).replace(/"/g,'&quot;')})">
+        Usar Drive (sobreescribe lo local)
+      </button>
+      <button class="btn btn-full" onclick="resolveConflict('local', null)">
+        Usar este dispositivo (sobreescribe Drive)
+      </button>
+    </div>
+  `);
+}
+
+async function resolveConflict(choice, driveData) {
+  closeModal();
+  if (choice === 'drive') {
+    DB.sessions = driveData.sessions;
+    DB.exercises = driveData.exercises || DB.exercises;
+    toast('Datos de Drive cargados ✓');
+  } else if (choice === 'merge') {
+    const sessionMap = {};
+    DB.sessions.forEach(s => { sessionMap[s.id] = s; });
+    (driveData.sessions || []).forEach(s => { if (!sessionMap[s.id]) sessionMap[s.id] = s; });
+    DB.sessions = Object.values(sessionMap).sort((a,b) => a.date.localeCompare(b.date));
+    toast('Datos fusionados ✓');
+  }
+  // choice === 'local': keep as is, just push
+  render();
+  await GD.push();
+}
+
+// Handle OAuth redirect — extract token from URL hash
+function handleOAuthRedirect() {
+  if (!window.location.hash) return;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const token = params.get('access_token');
+  const expiresIn = parseInt(params.get('expires_in') || '3600');
+  const state = params.get('state');
+  if (!token) return;
+  if (state !== localStorage.getItem('gd_state')) { toast('Error de autenticación'); return; }
+  GD.token = token;
+  GD.expiry = Date.now() + expiresIn * 1000;
+  // Clean URL
+  history.replaceState(null, '', window.location.pathname);
+  toast('Google Drive conectado ✓');
+  updateSyncBar();
+  GD.checkOnStartup();
 }
 
 // ═══════════════════════════════════════════════
@@ -1493,8 +1764,17 @@ function loadHistoricalData() {
 // ═══════════════════════════════════════════════
 if (!localStorage.getItem('historical_loaded_v3')) {
   loadHistoricalData();
+} else {
+  render();
 }
-render();
+// Handle OAuth redirect first (token in URL hash)
+handleOAuthRedirect();
+// Check Drive on startup if connected
+if (GD.isConnected()) {
+  GD.checkOnStartup();
+} else {
+  updateSyncBar();
+}
 </script>
 </body>
 </html>
