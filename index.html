@@ -283,7 +283,7 @@ function calcScores(session) {
   const sw = getSettings().score_weights;
   const weights = { sleep: sw.sleep, energy: sw.energy, stress_inv: sw.stress, motivation: sw.motivation, soreness_inv: sw.soreness };
   let total = 0, wsum = 0;
-  const push = (val, key, max) => { if (val != null && val !== '') { total += (val/max) * weights[key]; wsum += weights[key]; } };
+  const push = (val, key, max) => { if (val != null && val !== '' && val !== 0) { total += (val/max) * weights[key]; wsum += weights[key]; } };
   push(session.sleep, 'sleep', 5);
   push(session.energy, 'energy', 5);
   push(session.stress != null ? 6 - session.stress : null, 'stress_inv', 5);
@@ -352,7 +352,7 @@ function renderHome() {
         <div class="stat-lbl">Racha (días)</div>
       </div>
       <div class="stat-card">
-        <div class="stat-val">${sessions.length > 0 ? Math.round(sessions.reduce((a,s) => a + (s.duration||0),0)/sessions.length) : 0}<span style="font-size:14px;font-weight:400;color:var(--text3)">min</span></div>
+        <div class="stat-val">${(() => { const ds=sessions.filter(s=>s.duration&&s.duration>0); return ds.length ? Math.round(ds.reduce((a,s)=>a+s.duration,0)/ds.length) : '-'; })()}<span style="font-size:14px;font-weight:400;color:var(--text3)">min</span></div>
         <div class="stat-lbl">Media duración</div>
       </div>
       <div class="stat-card">
@@ -719,7 +719,7 @@ function renderProgressGeneral(allSessions) {
   const bioKeys = ['sleep','energy','stress','motivation','soreness'];
   const bioAvgs = {};
   bioKeys.forEach(k => {
-    const vals = sessions.map(s=>s[k]).filter(v=>v!=null);
+    const vals = sessions.map(s=>s[k]).filter(v=>v!=null&&v!==0);
     bioAvgs[k] = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : '-';
   });
 
@@ -978,7 +978,7 @@ function renderProgressCycle(sessions) {
     const scores = pSess.map(s=>calcScores(s));
     const abs = scores.map(s=>s.absolute).filter(v=>v!==null);
     const bio = { sleep:[], energy:[], stress:[], motivation:[], soreness:[] };
-    pSess.forEach(s => { Object.keys(bio).forEach(k => { if(s[k]!=null) bio[k].push(s[k]); }); });
+    pSess.forEach(s => { Object.keys(bio).forEach(k => { if(s[k]!=null&&s[k]!==0) bio[k].push(s[k]); }); });
     phaseData[p] = {
       count: pSess.length,
       avgAbs: abs.length ? Math.round(abs.reduce((a,b)=>a+b,0)/abs.length) : null,
